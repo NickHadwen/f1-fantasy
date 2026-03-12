@@ -5,17 +5,20 @@ import urllib.request
 import json
 from math import ceil
 from functools import wraps
+from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, g, jsonify
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
+load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 DATABASE = os.path.join(os.path.dirname(__file__), "f1fantasy.db")
-ADMIN_PASSWORD = "pawbertpawjob"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
 F1_API_BASE = "https://api.jolpi.ca/ergast/f1"
 CURRENT_SEASON = 2026
 TURBO_SALARY_CAP = 18.0  # Only drivers under this price can be turbo (GridRivals rule)
