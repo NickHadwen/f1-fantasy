@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Login - F1 Fantasy{% endblock %}
+{% block body %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1><span class="logo-text">F1</span> Fantasy</h1>
+        <p class="subtitle">Pick your team. Chase the championship.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="user_id">Select User</label>
+                <select name="user_id" id="user_id">
+                    <option value="">-- Choose your profile --</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password" placeholder="Enter your password">
+            </div>
+            <button type="submit" class="btn btn-primary">Sign In</button>
+        </form>
+
+        <div class="auth-footer">
+            New player? <a href="{{ url_for('register') }}">Create an account</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

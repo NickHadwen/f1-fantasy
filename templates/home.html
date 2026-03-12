@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - F1 Fantasy{% endblock %}
+{% block body %}
+<header class="navbar">
+    <span class="brand">F1 Fantasy</span>
+    <nav>
+        <a href="{{ url_for('home') }}" class="active">Dashboard</a>
+        <a href="{{ url_for('team') }}">My Team</a>
+        <a href="{{ url_for('admin') }}">Admin</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    {% if lineup_locked %}
+    <div class="flash error" style="text-align: center; font-weight: 600;">
+        Lineups are LOCKED - Qualifying has started. Changes disabled until race is scored.
+    </div>
+    {% endif %}
+
+    <!-- Stats overview -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value">{{ user_total }}</div>
+            <div class="stat-label">Your Points</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">#{{ user_rank }}</div>
+            <div class="stat-label">Your Rank</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${{ "%.1f"|format(remaining_budget) }}M</div>
+            <div class="stat-label">Budget Left</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ completed_races|length }}/{{ races|length }}</div>
+            <div class="stat-label">Races Completed</div>
+        </div>
+    </div>
+
+    <!-- Past races needing picks -->
+    {% if needs_picks %}
+    <div class="retro-picks-banner">
+        <div class="retro-picks-text">Submit your picks for past races:</div>
+        <div class="retro-picks-links">
+            {% for r in needs_picks %}
+            <a href="{{ url_for('race_picks_page', race_id=r.id) }}" class="btn btn-secondary retro-btn">
+                R{{ r.round }} {{ r.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Countdown cards -->
+    {% if next_race %}
+    <div class="countdown-row">
+        <div class="countdown-card">
+            <div class="countdown-header">
+                <span class="countdown-label">Round {{ next_race.round }}</span>
+                <span class="countdown-race-name">{{ next_race.name }}</span>
+            </div>
+            <div class="countdown-timer" id="raceCountdown" data-target="{{ next_race.race_datetime }}">
+                <div class="countdown-unit"><span class="cd-value" id="rc-days">--</span><span class="cd-label">Days</span></div>
+                <div class="countdown-sep">:</div>
+                <div class="countdown-unit"><span class="cd-value" id="rc-hours">--</span><span class="cd-label">Hours</span></div>
+                <div class="countdown-sep">:</div>
+                <div class="countdown-unit"><span class="cd-value" id="rc-mins">--</span><span class="cd-label">Mins</span></div>
+                <div class="countdown-sep">:</div>
+                <div class="countdown-unit"><span class="cd-value" id="rc-secs">--</span><span class="cd-label">Secs</span></div>
+            </div>
+        </div>
+        {% if not next_race.quali_locked %}
+        <div class="countdown-card quali">
+            <div class="countdown-header">
+                <span class="countdown-label">Quali Lockdown</span>
+                <span class="countdown-race-name">Lineups freeze at quali</span>
+            </div>
+            <div class="countdown-timer" id="qualiCountdown" data-target="{{ next_race.quali_datetime }}">
+                <div class="countdown-unit"><span class="cd-value" id="qc-days">--</span><span class="cd-label">Days</span></div>
+                <div class="countdown-sep">:</div>
+                <div class="countdown-unit"><span class="cd-value" id="qc-hours">--</span><span class="cd-label">Hours</span></div>
+                <div class="countdown-sep">:</div>
+                <div class="countdown-unit"><span class="cd-value" id="qc-mins">--</span><span class="cd-label">Mins</span></div>
+                <div class="countdown-sep">:</div>
+                <div class="countdown-unit"><span class="cd-value" id="qc-secs">--</span><span class="cd-label">Secs</span></div>
+            </div>
+        </div>
+        {% else %}
+        <div class="countdown-card locked">
+            <div class="countdown-header">
+                <span class="countdown-label">Quali Lockdown</span>
+                <span class="countdown-race-name">LINEUPS LOCKED</span>
+            </div>
+            <div class="countdown-timer">
+                <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent); text-align: center; width: 100%;">
+                    LOCKED
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="dashboard">
+        <!-- Leaderboard -->
+        <div class="card">
+            <h2>Leaderboard</h2>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th class="rank">#</th>
+                        <th>Player</th>
+                        <th class="points-col">Last Race</th>
+                        <th class="points-col">Points</th>
+                        <th class="points-col">Budget</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in leaderboard %}
+                    <tr class="{{ 'current-user' if row.id == session.user_id }}">
+                        <td class="rank {{ 'gold' if loop.index == 1 }}{{ 'silver' if loop.index == 2 }}{{ 'bronze' if loop.index == 3 }}">
+                            {{ loop.index }}
+                        </td>
+                        <td>{{ row.username }}</td>
+                        <td class="points-col" style="color: var(--text-dim);">{{ row.last_race_pts }}</td>
+                        <td class="points-col">{{ row.total_points }}</td>
+                        <td class="points-col" style="color: var(--text-dim);">${{ "%.1f"|format(row.budget) }}M</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not leaderboard %}
+                    <tr><td colspan="5" style="color: var(--text-dim); text-align: center; padding: 1rem;">No players yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- My Team -->
+        <div class="card">
+            <h2>My Team</h2>
+            {% if team_drivers %}
+                {% for d in team_drivers %}
+                <div class="team-slot {{ 'cooldown' if d.on_cooldown }}">
+                    <div class="team-slot-left">
+                        <img class="portrait-sm" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.svg') }}" alt="{{ d.name }}">
+                        <div>
+                            <span class="driver-name">{{ d.name }}</span>
+                            {% if d.is_turbo %}<span class="turbo-badge">2x Turbo</span>{% endif %}
+                            {% if d.on_cooldown %}<span class="cooldown-badge">Cooldown</span>{% endif %}
+                            <br>
+                            <span class="driver-team">{{ d.team }}</span>
+                            {% if not d.on_cooldown %}
+                            <span class="lock-info">{{ d.lock_remaining }} race{{ 's' if d.lock_remaining != 1 }} left</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="driver-price">${{ "%.1f"|format(d.price) }}M</span>
+                </div>
+                {% endfor %}
+                {% for c in team_constructors %}
+                <div class="team-slot">
+                    <div class="team-slot-left">
+                        <div class="portrait-sm constructor-portrait" style="background: {{ team_colors.get(c.name, '#666') }};">
+                            <span>{{ c.name[:3].upper() }}</span>
+                        </div>
+                        <div>
+                            <span class="driver-name">{{ c.name }}</span>
+                            <br><span class="driver-team">Constructor</span>
+                        </div>
+                    </div>
+                    <span class="driver-price">${{ "%.1f"|format(c.price) }}M</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-team">
+                    <p>You haven't picked a team yet.</p>
+                    <br>
+                    <a href="{{ url_for('team') }}" class="btn btn-primary" style="display:inline-flex; width:auto;">Pick Your Team</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Last Race Summary -->
+        {% if last_race_summary %}
+        <div class="card full-width">
+            <h2>Last Race Summary <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">{{ last_race_info.name }}</span></h2>
+            <div class="scroll-area">
+                {% for entry in last_race_summary %}
+                <div style="padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: .5rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem;">
+                        <strong>{{ entry.username }}</strong>
+                        <span style="font-weight: 700; font-size: 1.1rem;">{{ entry.total_points }} pts</span>
+                    </div>
+                    {% if entry.drivers or entry.constructors %}
+                    <div style="display: flex; flex-wrap: wrap; gap: .4rem; font-size: .85rem;">
+                        {% for d in entry.drivers %}
+                        <span style="background: var(--card); padding: .2rem .5rem; border-radius: 5px; border: 1px solid var(--border);">
+                            {{ d.name }}{% if d.is_turbo %} <span class="turbo-badge" style="font-size:.6rem;">2x</span>{% endif %}
+                            <span style="font-weight: 600; color: var(--accent);">{{ d.points }}</span>
+                        </span>
+                        {% endfor %}
+                        {% for c in entry.constructors %}
+                        <span style="background: var(--card); padding: .2rem .5rem; border-radius: 5px; border: 1px solid var(--border);">
+                            {{ c.name }}
+                            <span style="font-weight: 600; color: var(--accent);">{{ c.points }}</span>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div style="font-size: .85rem; color: var(--text-dim); font-style: italic;">No picks</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Driver Standings (Official F1) -->
+        <div class="card">
+            <h2>Driver Standings <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">Official F1</span></h2>
+            <div class="scroll-area">
+                <table class="standings-table">
+                    <thead>
+                        <tr><th>#</th><th>Driver</th><th>Team</th><th class="points-col">Pts</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for d in driver_standings %}
+                        <tr>
+                            <td style="font-weight:700; color:var(--text-dim);">{{ d.position }}</td>
+                            <td>{{ d.name }}</td>
+                            <td style="color: var(--text-dim);">{{ d.team }}</td>
+                            <td class="points-col">{{ d.points|int }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not driver_standings %}
+                        <tr><td colspan="4" style="color: var(--text-dim); text-align: center; padding: 1rem;">No standings yet</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Constructor Standings (Official F1) -->
+        <div class="card">
+            <h2>Constructor Standings <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">Official F1</span></h2>
+            <table class="standings-table">
+                <thead>
+                    <tr><th>#</th><th>Constructor</th><th class="points-col">Pts</th></tr>
+                </thead>
+                <tbody>
+                    {% for c in constructor_standings %}
+                    <tr>
+                        <td style="font-weight:700; color:var(--text-dim);">{{ c.position }}</td>
+                        <td>{{ c.name }}</td>
+                        <td class="points-col">{{ c.points|int }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not constructor_standings %}
+                    <tr><td colspan="3" style="color: var(--text-dim); text-align: center; padding: 1rem;">No standings yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Race Calendar -->
+        <div class="card full-width">
+            <h2>Race Calendar</h2>
+            <div class="scroll-area">
+                <ul class="race-list">
+                    {% for r in races %}
+                    <li class="race-item {{ 'completed' if r.completed }}{{ ' next' if next_race and r.id == next_race.id }}">
+                        <span class="race-round">R{{ r.round }}</span>
+                        <span class="race-name">
+                            {{ r.name }}
+                            {% if r.completed %}<span class="race-badge done">Done</span>{% endif %}
+                            {% if next_race and r.id == next_race.id %}<span class="race-badge next-badge">Next</span>{% endif %}
+                            {% if r.quali_locked and not r.completed %}<span class="race-badge locked-badge">Locked</span>{% endif %}
+                        </span>
+                        <span class="race-date">{{ r.race_datetime[:10] }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Scoring Rules -->
+        <div class="card full-width">
+            <h2>Scoring Rules</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; font-size: .9rem;">
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Race Finish</h4>
+                    <div>P1: 100 &bull; P2: 97 &bull; P3: 94</div>
+                    <div>-3 per position (P22: 37)</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Qualifying</h4>
+                    <div>P1: 50 &bull; P2: 48 &bull; P3: 46</div>
+                    <div>-2 per position (P22: 8)</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Sprint Race</h4>
+                    <div>P1: 20 &bull; P2: 19 &bull; P3: 18</div>
+                    <div>-1 per position (P20: 1)</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Overtakes</h4>
+                    <div>+3 pts per position gained</div>
+                    <div>(quali position vs race finish)</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Teammate Battle</h4>
+                    <div>Beat by 1-3: +2 &bull; 4-7: +5</div>
+                    <div>Beat by 8-12: +8 &bull; 13+: +12</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Completion</h4>
+                    <div>25%: 3 &bull; 50%: 6 &bull; 75%: 9 &bull; 90%: 12</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">PI Points</h4>
+                    <div>8-race avg vs finish (needs 8 races)</div>
+                    <div>+1 better: 2 &bull; +4: 9 &bull; +8: 25 &bull; +9: 30</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Constructors</h4>
+                    <div>Race: each driver mapped (P1=60, -2/pos), summed</div>
+                    <div>Quali: each driver mapped (P1=30, -1/pos), summed</div>
+                </div>
+                <div>
+                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Special</h4>
+                    <div>Turbo Driver: 2x all points</div>
+                    <div>Dynamic pricing after each race</div>
+                    <div>Driver Lock: 1-5 races, then cooldown</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateCountdown(targetStr, daysEl, hoursEl, minsEl, secsEl) {
+    const target = new Date(targetStr + ':00Z');
+    const now = new Date();
+    let diff = target - now;
+
+    if (diff <= 0) {
+        daysEl.textContent = '0';
+        hoursEl.textContent = '00';
+        minsEl.textContent = '00';
+        secsEl.textContent = '00';
+        return false;
+    }
+
+    const days = Math.floor(diff / 86400000);
+    diff %= 86400000;
+    const hours = Math.floor(diff / 3600000);
+    diff %= 3600000;
+    const mins = Math.floor(diff / 60000);
+    diff %= 60000;
+    const secs = Math.floor(diff / 1000);
+
+    daysEl.textContent = days;
+    hoursEl.textContent = String(hours).padStart(2, '0');
+    minsEl.textContent = String(mins).padStart(2, '0');
+    secsEl.textContent = String(secs).padStart(2, '0');
+    return true;
+}
+
+function startCountdowns() {
+    const raceEl = document.getElementById('raceCountdown');
+    const qualiEl = document.getElementById('qualiCountdown');
+
+    setInterval(() => {
+        if (raceEl) {
+            updateCountdown(
+                raceEl.dataset.target,
+                document.getElementById('rc-days'),
+                document.getElementById('rc-hours'),
+                document.getElementById('rc-mins'),
+                document.getElementById('rc-secs')
+            );
+        }
+        if (qualiEl) {
+            updateCountdown(
+                qualiEl.dataset.target,
+                document.getElementById('qc-days'),
+                document.getElementById('qc-hours'),
+                document.getElementById('qc-mins'),
+                document.getElementById('qc-secs')
+            );
+        }
+    }, 1000);
+
+    // Run immediately
+    if (raceEl) {
+        updateCountdown(raceEl.dataset.target,
+            document.getElementById('rc-days'), document.getElementById('rc-hours'),
+            document.getElementById('rc-mins'), document.getElementById('rc-secs'));
+    }
+    if (qualiEl) {
+        updateCountdown(qualiEl.dataset.target,
+            document.getElementById('qc-days'), document.getElementById('qc-hours'),
+            document.getElementById('qc-mins'), document.getElementById('qc-secs'));
+    }
+}
+
+startCountdowns();
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Admin Login - F1 Fantasy{% endblock %}
+{% block body %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1><span class="logo-text">F1</span> Admin</h1>
+        <p class="subtitle">Enter the admin password to continue</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="password">Admin Password</label>
+                <input type="password" name="password" id="password" placeholder="Enter admin password" autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary">Enter Admin Panel</button>
+        </form>
+
+        <div class="auth-footer">
+            <a href="{{ url_for('home') }}">Back to Dashboard</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Pick Team - F1 Fantasy{% endblock %}
+{% block body %}
+<header class="navbar">
+    <span class="brand">F1 Fantasy</span>
+    <nav>
+        <a href="{{ url_for('home') }}">Dashboard</a>
+        <a href="{{ url_for('team') }}" class="active">My Team</a>
+        <a href="{{ url_for('admin') }}">Admin</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    <!-- Early Release Section -->
+    {% if (locked_drivers or locked_constructors) and not lineup_locked %}
+    <div class="picker-section" style="margin-bottom: 1.5rem;">
+        <h3>Contracts</h3>
+        <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
+            Release early from a contract. Free before lockdown starts; 3% salary penalty once active.
+        </p>
+        {% for ld in locked_drivers %}
+        {% set contract_started = ld.lock_remaining < ld.lock_duration %}
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: .5rem;">
+            <div>
+                <strong>{{ ld.name }}</strong>
+                &mdash; ${{ "%.1f"|format(ld.price) }}M
+                &mdash; {{ ld.lock_remaining }}/{{ ld.lock_duration }} race{{ 's' if ld.lock_duration != 1 }}
+                {% if not contract_started %}
+                <span style="color: var(--text-dim); font-size: .75rem;">(not yet active)</span>
+                {% endif %}
+            </div>
+            {% if contract_started %}
+            <form method="POST" style="margin: 0;" onsubmit="return confirm('Release {{ ld.name }}? This will cost ${{ '%.1f'|format(ld.price * 0.03) }}M (3% penalty) and put them on 1-race cooldown.');">
+                <input type="hidden" name="action" value="release_driver">
+                <input type="hidden" name="driver_id" value="{{ ld.driver_id }}">
+                <button type="submit" class="btn" style="background: #c0392b; color: white; padding: .4rem .8rem; font-size: .8rem; border: none; border-radius: 6px; cursor: pointer;">
+                    Release (-${{ "%.1f"|format(ld.price * 0.03) }}M)
+                </button>
+            </form>
+            {% else %}
+            <form method="POST" style="margin: 0;" onsubmit="return confirm('Release {{ ld.name }}? No penalty (contract not yet active).');">
+                <input type="hidden" name="action" value="release_driver">
+                <input type="hidden" name="driver_id" value="{{ ld.driver_id }}">
+                <button type="submit" class="btn" style="background: var(--surface2); color: var(--text); padding: .4rem .8rem; font-size: .8rem; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">
+                    Release (free)
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% for lc in locked_constructors %}
+        {% set contract_started = lc.lock_remaining < lc.lock_duration %}
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: .5rem;">
+            <div>
+                <strong>{{ lc.name }}</strong> <span style="color: var(--text-dim); font-size: .75rem;">(Constructor)</span>
+                &mdash; ${{ "%.1f"|format(lc.price) }}M
+                &mdash; {{ lc.lock_remaining }}/{{ lc.lock_duration }} race{{ 's' if lc.lock_duration != 1 }}
+                {% if not contract_started %}
+                <span style="color: var(--text-dim); font-size: .75rem;">(not yet active)</span>
+                {% endif %}
+            </div>
+            {% if contract_started %}
+            <form method="POST" style="margin: 0;" onsubmit="return confirm('Release {{ lc.name }}? This will cost ${{ '%.1f'|format(lc.price * 0.03) }}M (3% penalty) and put them on 1-race cooldown.');">
+                <input type="hidden" name="action" value="release_constructor">
+                <input type="hidden" name="constructor_id" value="{{ lc.constructor_id }}">
+                <button type="submit" class="btn" style="background: #c0392b; color: white; padding: .4rem .8rem; font-size: .8rem; border: none; border-radius: 6px; cursor: pointer;">
+                    Release (-${{ "%.1f"|format(lc.price * 0.03) }}M)
+                </button>
+            </form>
+            {% else %}
+            <form method="POST" style="margin: 0;" onsubmit="return confirm('Release {{ lc.name }}? No penalty (contract not yet active).');">
+                <input type="hidden" name="action" value="release_constructor">
+                <input type="hidden" name="constructor_id" value="{{ lc.constructor_id }}">
+                <button type="submit" class="btn" style="background: var(--surface2); color: var(--text); padding: .4rem .8rem; font-size: .8rem; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">
+                    Release (free)
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="POST" id="teamForm">
+        <!-- Budget bar -->
+        <div class="budget-bar">
+            <div class="budget-info">
+                Budget: <span id="budgetSpent">$0.0M</span> / ${{ "%.1f"|format(budget) }}M
+            </div>
+            <div>
+                Remaining: <span class="budget-remaining" id="budgetRemaining">${{ "%.1f"|format(budget) }}M</span>
+            </div>
+        </div>
+
+        <!-- Drivers -->
+        <div class="picker-section">
+            <h3>Select 5 Drivers</h3>
+            <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
+                Selected: <span id="driverCount">0</span>/5
+                &nbsp;&middot;&nbsp; Lock a driver for 1-5 races. After their lock expires, they're unavailable for 1 race.
+            </p>
+            <div class="picker-grid">
+                {% for d in drivers %}
+                {% set is_cooled = d.id in locked_out %}
+                <label class="picker-card {{ 'selected' if d.id|string in selected_driver_ids }}{{ ' cooldown-card' if is_cooled }}" data-price="{{ d.price }}" data-type="driver" data-driver-id="{{ d.id }}">
+                    <input type="checkbox" name="drivers" value="{{ d.id }}"
+                           {{ 'checked' if d.id|string in selected_driver_ids }}
+                           {{ 'disabled' if is_cooled }}
+                           {{ 'data-locked="true"' if d.id|string in active_driver_contracts }}>
+                    <div class="picker-card-inner">
+                        <img class="portrait-md" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.svg') }}" alt="{{ d.name }}">
+                        <div class="driver-info">
+                            <h4>#{{ d.number }} {{ d.name }}</h4>
+                            <div class="team-name">{{ d.team }}</div>
+                            <div class="points-tag">{{ d.points }} pts</div>
+                            {% if is_cooled %}
+                            <div class="cooldown-notice">On cooldown - unavailable this race</div>
+                            {% else %}
+                            <div class="lock-select" style="margin-top: .4rem;">
+                                {% if d.id|string in active_driver_contracts %}
+                                <span style="font-size: .75rem; color: var(--accent);">
+                                    {{ driver_remaining.get(d.id|string) }} race{{ 's' if driver_remaining.get(d.id|string, 1) != 1 }} left
+                                </span>
+                                <input type="hidden" name="lock_{{ d.id }}" value="{{ driver_locks.get(d.id|string, 1) }}">
+                                {% else %}
+                                <input type="hidden" name="lock_{{ d.id }}" value="{{ driver_locks.get(d.id|string, 1) }}" class="lock-val">
+                                <div class="lock-btn-group" onclick="event.stopPropagation(); event.preventDefault();">
+                                    {% for n in range(1, 6) %}
+                                    <button type="button" class="lock-btn{{ ' active' if driver_locks.get(d.id|string, 1) == n }}" data-n="{{ n }}" onclick="setLock(this)">{{ n }}</button>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="price-tag">${{ "%.1f"|format(d.price) }}M</div>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Constructors -->
+        <div class="picker-section">
+            <h3>Select 1 Constructor</h3>
+            <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
+                Selected: <span id="constructorCount">0</span>/1
+                &nbsp;&middot;&nbsp; Lock a constructor for 1-5 races. After their lock expires, they're unavailable for 1 race.
+            </p>
+            <div class="picker-grid">
+                {% for c in constructors %}
+                {% set is_cooled_c = c.id in locked_out_constructors %}
+                <label class="picker-card {{ 'selected' if c.id|string in selected_constructor_ids }}{{ ' cooldown-card' if is_cooled_c }}" data-price="{{ c.price }}" data-type="constructor">
+                    <input type="checkbox" name="constructors" value="{{ c.id }}"
+                           {{ 'checked' if c.id|string in selected_constructor_ids }}
+                           {{ 'disabled' if is_cooled_c or c.id|string in active_constructor_contracts }}>
+                    <div class="constructor-bar" style="background: {{ c.color }};"></div>
+                    <div class="driver-info">
+                        <h4>{{ c.name }}</h4>
+                        <div class="points-tag">{{ c.points }} pts</div>
+                        {% if is_cooled_c %}
+                        <div class="cooldown-notice">On cooldown - unavailable this race</div>
+                        {% else %}
+                        <div class="lock-select" style="margin-top: .4rem;">
+                            {% if c.id|string in active_constructor_contracts %}
+                            <span style="font-size: .75rem; color: var(--accent);">
+                                {{ constructor_remaining.get(c.id|string) }} race{{ 's' if constructor_remaining.get(c.id|string, 1) != 1 }} left
+                            </span>
+                            <input type="hidden" name="lock_c_{{ c.id }}" value="{{ constructor_locks.get(c.id|string, 1) }}">
+                            {% else %}
+                            <input type="hidden" name="lock_c_{{ c.id }}" value="{{ constructor_locks.get(c.id|string, 1) }}" class="lock-val">
+                            <div class="lock-btn-group" onclick="event.stopPropagation(); event.preventDefault();">
+                                {% for n in range(1, 6) %}
+                                <button type="button" class="lock-btn{{ ' active' if constructor_locks.get(c.id|string, 1) == n }}" data-n="{{ n }}" onclick="setLock(this)">{{ n }}</button>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="price-tag">${{ "%.1f"|format(c.price) }}M</div>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Turbo Driver -->
+        <div class="turbo-select">
+            <h3 style="margin-bottom: .75rem;">Turbo Driver (2x points)</h3>
+            <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
+                Choose one of your selected drivers to receive double points. Only drivers under ${{ "%.1f"|format(turbo_salary_cap) }}M are eligible.
+            </p>
+            <select name="turbo_driver" id="turboSelect" class="form-group" style="width: 100%; padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 1rem;">
+                <option value="">-- Select turbo driver --</option>
+            </select>
+        </div>
+
+        <br>
+        <button type="submit" class="btn btn-primary" id="saveBtn" style="max-width: 300px;" disabled>Save Team</button>
+        <p id="saveHint" style="color: var(--text-dim); font-size: .85rem; margin-top: .5rem;"></p>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const budget = {{ budget }};
+const turboId = {{ turbo_id|tojson }};
+const turboSalaryCap = {{ turbo_salary_cap }};
+const lockedDriverIds = new Set({{ active_driver_contracts|list|tojson }});
+const lockedConstructorIds = new Set({{ active_constructor_contracts|list|tojson }});
+
+function setLock(btn) {
+    const group = btn.closest('.lock-btn-group');
+    group.querySelectorAll('.lock-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    group.parentElement.querySelector('.lock-val').value = btn.dataset.n;
+}
+
+function updateUI() {
+    const driverChecks = document.querySelectorAll('input[name="drivers"]:checked');
+    const constructorChecks = document.querySelectorAll('input[name="constructors"]:checked');
+
+    let spent = 0;
+    driverChecks.forEach(cb => {
+        spent += parseFloat(cb.closest('.picker-card').dataset.price);
+    });
+    constructorChecks.forEach(cb => {
+        spent += parseFloat(cb.closest('.picker-card').dataset.price);
+    });
+
+    const remaining = budget - spent;
+    document.getElementById('budgetSpent').textContent = `$${spent.toFixed(1)}M`;
+    const remEl = document.getElementById('budgetRemaining');
+    remEl.textContent = `$${remaining.toFixed(1)}M`;
+    remEl.className = remaining < 0 ? 'budget-remaining over' : 'budget-remaining';
+
+    document.getElementById('driverCount').textContent = driverChecks.length;
+    document.getElementById('constructorCount').textContent = constructorChecks.length;
+
+    // Update turbo select (only drivers under salary cap are eligible)
+    const turboSelect = document.getElementById('turboSelect');
+    const currentTurbo = turboSelect.value;
+    turboSelect.innerHTML = '<option value="">-- Select turbo driver --</option>';
+    driverChecks.forEach(cb => {
+        const card = cb.closest('.picker-card');
+        const price = parseFloat(card.dataset.price);
+        const name = card.querySelector('h4').textContent;
+        if (price >= turboSalaryCap) return; // ineligible for turbo
+        const opt = document.createElement('option');
+        opt.value = cb.value;
+        opt.textContent = name + ` ($${price.toFixed(1)}M)`;
+        if (cb.value === currentTurbo || cb.value === turboId) opt.selected = true;
+        turboSelect.appendChild(opt);
+    });
+
+    // Update card selected state
+    document.querySelectorAll('.picker-card').forEach(card => {
+        const cb = card.querySelector('input[type="checkbox"]');
+        if (!cb.disabled) {
+            card.classList.toggle('selected', cb.checked);
+        }
+    });
+
+    // Validate full lineup + turbo before allowing save
+    const saveBtn = document.getElementById('saveBtn');
+    const saveHint = document.getElementById('saveHint');
+    const hasTurbo = turboSelect.value !== '';
+    const hints = [];
+    if (driverChecks.length < 5) hints.push(`${5 - driverChecks.length} more driver${5 - driverChecks.length !== 1 ? 's' : ''}`);
+    if (constructorChecks.length < 1) hints.push('1 constructor');
+    if (!hasTurbo) hints.push('a turbo driver');
+    if (remaining < 0) hints.push('under budget');
+
+    if (hints.length === 0) {
+        saveBtn.disabled = false;
+        saveHint.textContent = '';
+    } else {
+        saveBtn.disabled = true;
+        saveHint.textContent = 'Need: ' + hints.join(', ');
+    }
+}
+
+document.querySelectorAll('.picker-card input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+        // Prevent unchecking drivers/constructors with active contracts
+        if (!this.checked) {
+            const lockedSet = this.name === 'drivers' ? lockedDriverIds : lockedConstructorIds;
+            if (lockedSet.has(this.value)) {
+                this.checked = true;
+                return;
+            }
+        }
+        const type = this.closest('.picker-card').dataset.type;
+        const max = type === 'driver' ? 5 : 1;
+        const name = type === 'driver' ? 'drivers' : 'constructors';
+        const checked = document.querySelectorAll(`input[name="${name}"]:checked`);
+        if (checked.length > max) {
+            this.checked = false;
+            return;
+        }
+        updateUI();
+    });
+});
+
+document.getElementById('turboSelect').addEventListener('change', updateUI);
+
+// Prevent clicks on cooldown cards
+document.querySelectorAll('.cooldown-card').forEach(card => {
+    card.addEventListener('click', function(e) {
+        e.preventDefault();
+    });
+});
+
+updateUI();
+</script>
+{% endblock %}

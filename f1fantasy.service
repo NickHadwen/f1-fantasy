@@ -1,0 +1,16 @@
+[Unit]
+Description=F1 Fantasy Web App
+After=network.target tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=simple
+User=sobevika
+WorkingDirectory=/home/sobevika/f1-fantasy
+ExecStart=/home/sobevika/f1-fantasy/venv/bin/python app.py
+Restart=always
+RestartSec=5
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target
