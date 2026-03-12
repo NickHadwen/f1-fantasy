@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 DATABASE = os.path.join(os.path.dirname(__file__), "f1fantasy.db")
-ADMIN_PASSWORD = "password1"
+ADMIN_PASSWORD = "pawbertpawjob"
 F1_API_BASE = "https://api.jolpi.ca/ergast/f1"
 CURRENT_SEASON = 2026
 TURBO_SALARY_CAP = 20.0  # Only drivers under this price can be turbo (GridRivals rule)
