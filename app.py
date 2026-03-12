@@ -402,6 +402,11 @@ def calc_constructor_race_points(driver_positions, driver_quali_positions):
     return pts
 
 
+def calculate_value(previous, current):
+    """Salary value: calculate new salary value from salary variation formula"""
+    #not sure how it's meant to round down with negative numbers e.g. should -2.15 be -2.1 or -2.2?
+    return previous + round((previous - current)/4, 1)
+
 def update_driver_prices(db, race_id):
     """Adjust driver prices based on race performance (dynamic pricing)."""
     results = db.execute("SELECT * FROM race_results WHERE race_id = ?", (race_id,)).fetchall()
