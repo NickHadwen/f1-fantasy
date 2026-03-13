@@ -359,14 +359,20 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
     pts = 0
     pos = result["position"]
     quali_pos = result["quali_pos"]
+    laps = result["laps"] or 0
+    dns = laps == 0  # Did Not Start — no race-related points
+
+    # Qualifying points (awarded even for DNS)
+    if quali_pos:
+        pts += QUALI_PTS.get(quali_pos, max(0, 50 - (quali_pos - 1) * 2))
+
+    # Everything below requires the driver to have actually started the race
+    if dns:
+        return pts
 
     # Race finish points
     if pos:
         pts += RACE_FINISH_PTS.get(pos, max(0, 100 - (pos - 1) * 3))
-
-    # Qualifying points
-    if quali_pos:
-        pts += QUALI_PTS.get(quali_pos, max(0, 50 - (quali_pos - 1) * 2))
 
     # Overtake points (quali pos vs race finish, only gains)
     if pos and quali_pos:
@@ -380,7 +386,7 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
         pts += SPRINT_PTS.get(sp, 0)
 
     # Completion points
-    pts += calc_completion_pts(result["laps"], result["total_laps"])
+    pts += calc_completion_pts(laps, result["total_laps"])
 
     # Beating teammate
     if teammate_finish:
