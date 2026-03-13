@@ -160,7 +160,7 @@
                 <label class="picker-card {{ 'selected' if c.id|string in selected_constructor_ids }}{{ ' cooldown-card' if is_cooled_c }}" data-price="{{ c.price }}" data-type="constructor">
                     <input type="checkbox" name="constructors" value="{{ c.id }}"
                            {{ 'checked' if c.id|string in selected_constructor_ids }}
-                           {{ 'disabled' if is_cooled_c or c.id|string in active_constructor_contracts }}>
+                           {{ 'disabled' if is_cooled_c }}>
                     <div class="constructor-bar" style="background: {{ c.color }};"></div>
                     <div class="driver-info">
                         <h4>{{ c.name }}</h4>
