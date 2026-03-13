@@ -217,10 +217,18 @@ CREATE TABLE IF NOT EXISTS race_results (
     grid        INTEGER,
     quali_pos   INTEGER,
     fastest_lap INTEGER NOT NULL DEFAULT 0,
+    status      TEXT,
     dnf         INTEGER NOT NULL DEFAULT 0,
     laps        INTEGER NOT NULL DEFAULT 0,
     total_laps  INTEGER NOT NULL DEFAULT 0,
     sprint_pos  INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS preseason_results (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    race_id     INTEGER NOT NULL DEFAULT 0,
+    driver_id   INTEGER NOT NULL REFERENCES drivers(id),
+    position    INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS user_teams (
@@ -335,23 +343,22 @@ def calc_teammate_pts(driver_pos, teammate_pos):
     return TEAMMATE_PTS.get(gap, 12)  # 12 for any gap >= 13
 
 
-def calc_pi_pts(db, driver_id, current_finish):
+def calc_pi_pts(db, race_id, driver_id, current_finish):
     """Performance Index points: 8-race rolling avg finish vs current finish."""
     if not current_finish:
         return 0
-    # Get last 8 race finishes for this driver (excluding current race)
-    rows = db.execute("""
-        SELECT position FROM race_results
-        WHERE driver_id = ? AND position IS NOT NULL
-        ORDER BY race_id DESC LIMIT 8
-    """, (driver_id,)).fetchall()
+    total = 0
+    for i in range(race_id - 8, race_id):
+        if i > 1:
+            #use actual race results
+            total += db.execute(f"SELECT position FROM race_results WHERE driver_id = {driver_id} AND race_id = {i}").fetchall()[0][0]
+        else:
+            #use initial ranking
+            total += db.execute(f"SELECT position FROM preseason_results WHERE driver_id = {driver_id} AND race_id = 0").fetchall()[0][0]
 
-    if len(rows) < 8:
-        return 0  # not enough history
-
-    avg = ceil(sum(r["position"] for r in rows) / len(rows))
-    pi_finish = max(0, avg - current_finish - 1)
-    return PI_PTS.get(pi_finish, 30)
+    avg = ceil(total/8)
+    pi_finish = max(0, avg - current_finish)
+    return PI_PTS.get(pi_finish, 0)
 
 
 def calc_driver_race_points(result, teammate_finish=None, db=None):
@@ -359,24 +366,19 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
     pts = 0
     pos = result["position"]
     quali_pos = result["quali_pos"]
-    laps = result["laps"] or 0
-    dns = laps == 0  # Did Not Start — no race-related points
+    grid_pos = result["grid"]
 
-    # Qualifying points (awarded even for DNS)
+    # Race finish points. DNS or DSQ = 0 points
+    if pos and result["status"] not in ['Did not start', 'Disqualified']:
+        pts += RACE_FINISH_PTS.get(pos, max(0, 100 - (pos - 1) * 3))
+
+    # Qualifying points
     if quali_pos:
         pts += QUALI_PTS.get(quali_pos, max(0, 50 - (quali_pos - 1) * 2))
 
-    # Everything below requires the driver to have actually started the race
-    if dns:
-        return pts
-
-    # Race finish points
-    if pos:
-        pts += RACE_FINISH_PTS.get(pos, max(0, 100 - (pos - 1) * 3))
-
-    # Overtake points (quali pos vs race finish, only gains)
-    if pos and quali_pos:
-        gained = quali_pos - pos
+    # Overtake points (starting pos vs race finish, only gains)
+    if pos and grid_pos:
+        gained = grid_pos - pos
         if gained > 0:
             pts += gained * OVERTAKE_PTS_PER_POS
 
@@ -394,7 +396,7 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
 
     # PI points (requires db for historical lookup)
     if db and pos:
-        pts += calc_pi_pts(db, result["driver_id"], pos)
+        pts += calc_pi_pts(db, result["race_id"], result["driver_id"], pos)
 
     return pts
 
@@ -778,6 +780,32 @@ def seed_data():
         ("Abu Dhabi Grand Prix",            "ARE", 24, "2026-12-06T13:00", "2026-12-05T14:00"),
     ]
 
+    #Season starting ranking for drivers
+    preseason_data = [
+        (0, 1, 1), #Verstappen
+        (0, 2, 9), #Hadjar
+        (0, 3, 8), #Hamilton
+        (0, 4, 6), #Leclerc
+        (0, 5, 3), #Norris
+        (0, 6, 4), #Piastri
+        (0, 7, 2), #Russell
+        (0, 8, 5), #Antonelli
+        (0, 9, 7), #Alonso
+        (0, 10, 11), #Stroll
+        (0, 11, 10), #Gasly
+        (0, 12, 19), #Colapinto may be lower
+        (0, 13, 13), #Lawson
+        (0, 14, 19), #Lindblad may be lower
+        (0, 15, 15), #Hulkenberg
+        (0, 16, 16), #Bortoleto
+        (0, 17, 14), #Albon
+        (0, 18, 12), #Sainz
+        (0, 19, 17), #Bearman
+        (0, 20, 18), #Ocon
+        (0, 21, 19), #Perez may be lower
+        (0, 22, 19)  #Bottas may be lower
+    ]
+
     for d in drivers:
         portrait = driver_slug(d[0]) + ".svg"
         db.execute(
@@ -790,6 +818,8 @@ def seed_data():
         db.execute(
             "INSERT INTO races (name, country, round, race_datetime, quali_datetime) VALUES (?,?,?,?,?)", r
         )
+    for p in preseason_data:
+        db.execute("INSERT INTO preseason_results (race_id, driver_id, position) VALUES (?,?,?)", p)
     db.commit()
 
 
@@ -1525,11 +1555,11 @@ def admin():
                         sprint_pos = sprint_map.get(r["driver_name"])
                         db.execute("""
                             INSERT INTO race_results (race_id, driver_id, position, grid, quali_pos,
-                                                      fastest_lap, dnf, laps, total_laps, sprint_pos)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                                      fastest_lap, dnf, status, laps, total_laps, sprint_pos)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (race_id, driver_id, r["position"], r["grid"], quali_pos,
                               1 if r["fastest_lap"] else 0,
-                              1 if r["dnf"] else 0,
+                              1 if r["dnf"] else 0, r['status'],
                               r["laps"], r["total_laps"],
                               sprint_pos))
 
