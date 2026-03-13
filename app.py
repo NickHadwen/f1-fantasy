@@ -388,7 +388,7 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
         pts += SPRINT_PTS.get(sp, 0)
 
     # Completion points
-    pts += calc_completion_pts(result["laps"], result["total_laps"])
+    pts += calc_completion_pts(laps, result["total_laps"])
 
     # Beating teammate
     if teammate_finish:
@@ -668,8 +668,13 @@ def get_locked_out_constructors(db, user_id):
 
 
 def is_lineup_locked(db):
+    from datetime import datetime, timezone
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
+    # Locked if quali time has passed and not manually unlocked (quali_locked = -1)
+    # quali_locked: 0 = default (auto), 1 = manually locked, -1 = manually unlocked
     row = db.execute(
-        "SELECT COUNT(*) as c FROM races WHERE quali_locked = 1 AND completed = 0"
+        "SELECT COUNT(*) as c FROM races WHERE completed = 0 AND quali_locked != -1 AND quali_datetime <= ?",
+        (now_utc,)
     ).fetchone()
     return row["c"] > 0
 
@@ -1451,15 +1456,9 @@ def admin():
     if request.method == "POST":
         action = request.form.get("action")
 
-        if action == "lock_quali":
+        if action == "unlock_quali":
             race_id = request.form.get("race_id")
-            db.execute("UPDATE races SET quali_locked = 1 WHERE id = ?", (race_id,))
-            db.commit()
-            flash("Qualifying locked! Lineups are now frozen.", "success")
-
-        elif action == "unlock_quali":
-            race_id = request.form.get("race_id")
-            db.execute("UPDATE races SET quali_locked = 0 WHERE id = ?", (race_id,))
+            db.execute("UPDATE races SET quali_locked = -1 WHERE id = ?", (race_id,))
             db.commit()
             flash("Lineup lock removed.", "success")
 
@@ -1633,7 +1632,9 @@ def admin():
             "constructors": team_constructors,
         }
 
-    return render_template("admin.html", races=races, drivers=drivers, users=users, adjustments=adjustments, all_user_teams=all_user_teams)
+    from datetime import datetime, timezone
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
+    return render_template("admin.html", races=races, drivers=drivers, users=users, adjustments=adjustments, all_user_teams=all_user_teams, now_utc=now_utc)
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -1749,7 +1750,7 @@ def score_race(db, race_id, rescore=False):
 
     if not rescore:
         process_lock_decrements(db, race_id)
-    db.execute("UPDATE races SET completed = 1, quali_locked = 0 WHERE id = ?", (race_id,))
+    db.execute("UPDATE races SET completed = 1 WHERE id = ?", (race_id,))
     db.commit()
 
 

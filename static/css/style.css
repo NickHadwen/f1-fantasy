@@ -288,6 +288,7 @@ a:hover { text-decoration: underline; }
     height: 44px;
     border-radius: 8px;
     object-fit: cover;
+    object-position: top;
     flex-shrink: 0;
 }
 
@@ -296,6 +297,7 @@ a:hover { text-decoration: underline; }
     height: 56px;
     border-radius: 10px;
     object-fit: cover;
+    object-position: top;
     flex-shrink: 0;
 }
 
