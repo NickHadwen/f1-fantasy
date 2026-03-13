@@ -41,31 +41,19 @@
             </form>
         </div>
 
-        <!-- Lock/Unlock Qualifying -->
+        <!-- Unlock Lineups -->
         <div class="card">
-            <h2>Lineup Lock (Qualifying)</h2>
+            <h2>Unlock Lineups</h2>
             <p style="color: var(--text-dim); font-size: .9rem; margin-bottom: 1rem;">
-                Lock lineups when qualifying starts. Unlock happens automatically when the race is scored.
+                Lineups lock automatically at qualifying time. Use this to manually unlock if needed.
             </p>
-            <form method="POST" style="margin-bottom: 1rem;">
-                <input type="hidden" name="action" value="lock_quali">
-                <div class="form-group">
-                    <label>Lock Qualifying For</label>
-                    <select name="race_id" required>
-                        {% for r in races if not r.completed and not r.quali_locked %}
-                        <option value="{{ r.id }}">R{{ r.round }} - {{ r.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Lock Lineups</button>
-            </form>
             <form method="POST">
                 <input type="hidden" name="action" value="unlock_quali">
                 <div class="form-group">
-                    <label>Unlock (if needed)</label>
+                    <label>Unlock Race</label>
                     <select name="race_id" required>
-                        {% for r in races if r.quali_locked and not r.completed %}
-                        <option value="{{ r.id }}">R{{ r.round }} - {{ r.name }} (LOCKED)</option>
+                        {% for r in races if not r.completed %}
+                        <option value="{{ r.id }}">R{{ r.round }} - {{ r.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -95,7 +83,9 @@
                     <td>
                         {% if r.completed %}
                         <span class="race-badge done">Scored</span>
-                        {% elif r.quali_locked %}
+                        {% elif r.quali_locked == -1 %}
+                        <span style="color: #2ecc71; font-size: .85rem;">Unlocked</span>
+                        {% elif r.quali_datetime <= now_utc %}
                         <span class="race-badge locked-badge">Locked</span>
                         {% else %}
                         <span style="color: var(--text-dim); font-size: .85rem;">Pending</span>
