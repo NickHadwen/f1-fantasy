@@ -368,28 +368,19 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
     quali_pos = result["quali_pos"]
     grid_pos = result["grid"]
 
-    print(result["driver_id"])
-
     # Race finish points. DNS or DSQ = 0 points
     if pos and result["status"] not in ['Did not start', 'Disqualified']:
         pts += RACE_FINISH_PTS.get(pos, max(0, 100 - (pos - 1) * 3))
-        print("Race Points = ", RACE_FINISH_PTS.get(pos, max(0, 100 - (pos - 1) * 3)))
 
     # Qualifying points
     if quali_pos:
         pts += QUALI_PTS.get(quali_pos, max(0, 50 - (quali_pos - 1) * 2))
-        print("Qualifying Points = ", QUALI_PTS.get(quali_pos, max(0, 50 - (quali_pos - 1) * 2)))
 
     # Overtake points (starting pos vs race finish, only gains)
     if pos and grid_pos:
         gained = grid_pos - pos
         if gained > 0:
             pts += gained * OVERTAKE_PTS_PER_POS
-            print("Overtake Points = ", gained * OVERTAKE_PTS_PER_POS)
-        else:
-            print("Overtake Points = 0")
-    else:
-        print("Overtake Points = 0")
 
     # Sprint race
     if result["sprint_pos"]:
@@ -398,18 +389,14 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
 
     # Completion points
     pts += calc_completion_pts(result["laps"], result["total_laps"])
-    print("Completions Points = ", calc_completion_pts(result["laps"], result["total_laps"]))
 
     # Beating teammate
     if teammate_finish:
         pts += calc_teammate_pts(pos, teammate_finish)
-    print("Teammate Points = ", calc_teammate_pts(pos, teammate_finish))
-
 
     # PI points (requires db for historical lookup)
     if db and pos:
         pts += calc_pi_pts(db, result["race_id"], result["driver_id"], pos)
-    print("PI Points = ", calc_pi_pts(db, result["race_id"], result["driver_id"], pos))
 
     return pts
 
