@@ -47,7 +47,7 @@
                     <input type="checkbox" name="drivers" value="{{ d.id }}"
                            {{ 'checked' if d.id|string in selected_driver_ids }}>
                     <div class="picker-card-inner">
-                        <img class="portrait-md" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.svg') }}" alt="{{ d.name }}">
+                        <img class="portrait-md" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.webp') }}" alt="{{ d.name }}">
                         <div class="driver-info">
                             <h4>#{{ d.number }} {{ d.name }}</h4>
                             <div class="team-name">{{ d.team }}</div>
