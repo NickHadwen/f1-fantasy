@@ -388,7 +388,7 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
         pts += SPRINT_PTS.get(sp, 0)
 
     # Completion points
-    pts += calc_completion_pts(laps, result["total_laps"])
+    pts += calc_completion_pts(result["laps"], result["total_laps"])
 
     # Beating teammate
     if teammate_finish:
