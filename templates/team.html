@@ -162,6 +162,8 @@
                            {{ 'checked' if c.id|string in selected_constructor_ids }}
                            {{ 'disabled' if is_cooled_c }}>
                     <div class="constructor-bar" style="background: {{ c.color }};"></div>
+                    <div class="picker-card-inner">
+                        <img class="constructor-logo" src="{{ url_for('static', filename='img/constructors/' + c.name.lower().replace(' ', '-') + '.webp') }}" alt="{{ c.name }}">
                     <div class="driver-info">
                         <h4>{{ c.name }}</h4>
                         <div class="points-tag">{{ c.points }} pts</div>
@@ -184,6 +186,7 @@
                             {% endif %}
                         </div>
                         {% endif %}
+                    </div>
                     </div>
                     <div class="price-tag">${{ "%.1f"|format(c.price) }}M</div>
                 </label>
