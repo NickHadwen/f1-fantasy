@@ -292,6 +292,13 @@ a:hover { text-decoration: underline; }
     flex-shrink: 0;
 }
 
+.constructor-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
 .portrait-md {
     width: 56px;
     height: 56px;

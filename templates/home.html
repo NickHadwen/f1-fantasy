@@ -166,9 +166,7 @@
                 {% for c in team_constructors %}
                 <div class="team-slot">
                     <div class="team-slot-left">
-                        <div class="portrait-sm constructor-portrait" style="background: {{ team_colors.get(c.name, '#666') }};">
-                            <span>{{ c.name[:3].upper() }}</span>
-                        </div>
+                        <img class="portrait-sm" style="object-fit: contain; background: {{ team_colors.get(c.name, '#666') }};" src="{{ url_for('static', filename='img/constructors/' + c.name.lower().replace(' ', '-') + '.webp') }}" alt="{{ c.name }}">
                         <div>
                             <span class="driver-name">{{ c.name }}</span>
                             <br><span class="driver-team">Constructor</span>
