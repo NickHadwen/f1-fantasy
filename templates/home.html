@@ -128,7 +128,15 @@
                         <td class="rank {{ 'gold' if loop.index == 1 }}{{ 'silver' if loop.index == 2 }}{{ 'bronze' if loop.index == 3 }}">
                             {{ loop.index }}
                         </td>
-                        <td>{{ row.username }}</td>
+                        <td>
+                            {{ row.username }}
+                            {% set change = position_changes.get(row.id, 0) %}
+                            {% if change > 0 %}
+                            <span class="pos-change up">&#9650; {{ change }}</span>
+                            {% elif change < 0 %}
+                            <span class="pos-change down">&#9660; {{ change|abs }}</span>
+                            {% endif %}
+                        </td>
                         <td class="points-col" style="color: var(--text-dim);">{{ row.last_race_pts }}</td>
                         <td class="points-col">{{ row.total_points }}</td>
                         <td class="points-col" style="color: var(--text-dim);">${{ "%.1f"|format(row.budget) }}M</td>
