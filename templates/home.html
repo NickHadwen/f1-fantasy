@@ -110,16 +110,17 @@
 
     <div class="dashboard">
         <!-- Leaderboard -->
-        <div class="card">
+        <div class="card full-width">
             <h2>Leaderboard</h2>
+            <div class="table-scroll">
             <table class="leaderboard-table">
                 <thead>
                     <tr>
                         <th class="rank">#</th>
                         <th>Player</th>
-                        <th class="points-col">Last Race</th>
+                        <th class="points-col hide-narrow">Last Race</th>
                         <th class="points-col">Points</th>
-                        <th class="points-col">Budget</th>
+                        <th class="points-col hide-narrow">Budget</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -137,9 +138,9 @@
                             <span class="pos-change down">&#9660; {{ change|abs }}</span>
                             {% endif %}
                         </td>
-                        <td class="points-col" style="color: var(--text-dim);">{{ row.last_race_pts }}</td>
+                        <td class="points-col hide-narrow" style="color: var(--text-dim);">{{ row.last_race_pts }}</td>
                         <td class="points-col">{{ row.total_points }}</td>
-                        <td class="points-col" style="color: var(--text-dim);">${{ "%.1f"|format(row.budget) }}M</td>
+                        <td class="points-col hide-narrow" style="color: var(--text-dim);">${{ "%.1f"|format(row.budget) }}M</td>
                     </tr>
                     {% endfor %}
                     {% if not leaderboard %}
@@ -147,6 +148,7 @@
                     {% endif %}
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- My Team -->
@@ -198,28 +200,39 @@
             <h2>Last Race Summary <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">{{ last_race_info.name }}</span></h2>
             <div class="scroll-area">
                 {% for entry in last_race_summary %}
-                <div style="padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: .5rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem;">
-                        <strong>{{ entry.username }}</strong>
-                        <span style="font-weight: 700; font-size: 1.1rem;">{{ entry.total_points }} pts</span>
+                <div class="race-summary-card">
+                    <div class="race-summary-header">
+                        <div class="race-summary-user">
+                            <span class="race-summary-rank">{{ loop.index }}</span>
+                            <strong>{{ entry.username }}</strong>
+                        </div>
+                        <span class="race-summary-total">{{ entry.total_points }} pts</span>
                     </div>
                     {% if entry.drivers or entry.constructors %}
-                    <div style="display: flex; flex-wrap: wrap; gap: .4rem; font-size: .85rem;">
+                    <div class="race-summary-picks">
                         {% for d in entry.drivers %}
-                        <span style="background: var(--card); padding: .2rem .5rem; border-radius: 5px; border: 1px solid var(--border);">
-                            {{ d.name }}{% if d.is_turbo %} <span class="turbo-badge" style="font-size:.6rem;">2x</span>{% endif %}
-                            <span style="font-weight: 600; color: var(--accent);">{{ d.points }}</span>
-                        </span>
+                        <div class="race-summary-pick">
+                            <img class="portrait-xs" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.webp') }}" alt="{{ d.name }}">
+                            <div class="race-summary-pick-info">
+                                <span class="race-summary-pick-name">
+                                    {{ d.name }}{% if d.is_turbo %} <span class="turbo-badge" style="font-size:.55rem;">2x</span>{% endif %}
+                                </span>
+                                <span class="race-summary-pick-pts">{{ d.points }}</span>
+                            </div>
+                        </div>
                         {% endfor %}
                         {% for c in entry.constructors %}
-                        <span style="background: var(--card); padding: .2rem .5rem; border-radius: 5px; border: 1px solid var(--border);">
-                            {{ c.name }}
-                            <span style="font-weight: 600; color: var(--accent);">{{ c.points }}</span>
-                        </span>
+                        <div class="race-summary-pick constructor">
+                            <img class="portrait-xs" style="object-fit: contain;" src="{{ url_for('static', filename='img/constructors/' + c.name.lower().replace(' ', '-') + '.webp') }}" alt="{{ c.name }}">
+                            <div class="race-summary-pick-info">
+                                <span class="race-summary-pick-name">{{ c.name }}</span>
+                                <span class="race-summary-pick-pts">{{ c.points }}</span>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div style="font-size: .85rem; color: var(--text-dim); font-style: italic;">No picks</div>
+                    <div style="font-size: .85rem; color: var(--text-dim); font-style: italic; padding: .5rem 0;">No picks</div>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -230,7 +243,7 @@
         <!-- Driver Standings (Official F1) -->
         <div class="card">
             <h2>Driver Standings <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">Official F1</span></h2>
-            <div class="scroll-area">
+            <div>
                 <table class="standings-table">
                     <thead>
                         <tr><th>#</th><th>Driver</th><th>Team</th><th class="points-col">Pts</th></tr>
@@ -298,53 +311,7 @@
         <!-- Scoring Rules -->
         <div class="card full-width">
             <h2>Scoring Rules</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; font-size: .9rem;">
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Race Finish</h4>
-                    <div>P1: 100 &bull; P2: 97 &bull; P3: 94</div>
-                    <div>-3 per position (P22: 37)</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Qualifying</h4>
-                    <div>P1: 50 &bull; P2: 48 &bull; P3: 46</div>
-                    <div>-2 per position (P22: 8)</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Sprint Race</h4>
-                    <div>P1: 20 &bull; P2: 19 &bull; P3: 18</div>
-                    <div>-1 per position (P20: 1)</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Overtakes</h4>
-                    <div>+3 pts per position gained</div>
-                    <div>(quali position vs race finish)</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Teammate Battle</h4>
-                    <div>Beat by 1-3: +2 &bull; 4-7: +5</div>
-                    <div>Beat by 8-12: +8 &bull; 13+: +12</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Completion</h4>
-                    <div>25%: 3 &bull; 50%: 6 &bull; 75%: 9 &bull; 90%: 12</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">PI Points</h4>
-                    <div>8-race avg vs finish (needs 8 races)</div>
-                    <div>+1 better: 2 &bull; +4: 9 &bull; +8: 25 &bull; +9: 30</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Constructors</h4>
-                    <div>Race: each driver mapped (P1=60, -2/pos), summed</div>
-                    <div>Quali: each driver mapped (P1=30, -1/pos), summed</div>
-                </div>
-                <div>
-                    <h4 style="color: var(--text-dim); margin-bottom: .5rem;">Special</h4>
-                    <div>Turbo Driver: 2x all points</div>
-                    <div>Dynamic pricing after each race</div>
-                    <div>Driver Lock: 1-5 races, then cooldown</div>
-                </div>
-            </div>
+            <p style="color: var(--text-dim);">i just made them up hehe</p>
         </div>
     </div>
 </div>
