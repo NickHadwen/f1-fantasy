@@ -4,24 +4,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;600;700&display=swap');
 
 :root {
-    --bg:        #000000;
-    --surface:   rgba(0,0,0,0.6);
-    --surface2:  rgba(0,0,0,0.4);
-    --border:    rgba(255,170,0,0.25);
-    --text:      #ffffff;
-    --text-dim:  rgba(255,170,0,0.6);
+    --bg:        #0a0a0f;
+    --surface:   #12131a;
+    --surface2:  #191a24;
+    --border:    #2a2b3a;
+    --text:      #e8e8ef;
+    --text-dim:  #8a8b9e;
     --accent:    #ffaa00;
-    --accent2:   #ff6600;
-    --danger:    #e60003;
+    --accent2:   #ff7700;
+    --danger:    #e6333f;
     --gold:      #ffaa00;
     --silver:    #c0c0c0;
     --bronze:    #cd7f32;
-    --green:     #00ff80;
+    --green:     #3dd68c;
     --orange:    #ffaa00;
-    --radius:    4px;
-    --glow-orange: 0 0 8px rgba(255,170,0,0.4), 0 0 20px rgba(255,170,0,0.1);
-    --glow-red:    0 0 8px rgba(230,0,3,0.4), 0 0 20px rgba(230,0,3,0.1);
-    --text-glow:   0 0 4px rgba(255,170,0,0.6), 0 0 8px rgba(255,170,0,0.2);
+    --radius:    6px;
+    --glow-orange: 0 0 6px rgba(255,170,0,0.25);
+    --glow-red:    0 0 6px rgba(230,51,63,0.25);
+    --text-glow:   0 0 4px rgba(255,170,0,0.3);
 }
 
 body {
@@ -30,8 +30,6 @@ body {
     color: var(--text);
     line-height: 1.6;
     min-height: 100vh;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     position: relative;
 }
 
@@ -43,9 +41,9 @@ body::after {
     background: repeating-linear-gradient(
         0deg,
         transparent,
-        transparent 2px,
-        rgba(0,0,0,0.08) 2px,
-        rgba(0,0,0,0.08) 4px
+        transparent 3px,
+        rgba(0,0,0,0.03) 3px,
+        rgba(0,0,0,0.03) 6px
     );
     pointer-events: none;
     z-index: 9999;
@@ -65,12 +63,12 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 
 .auth-card {
     background: var(--surface);
-    border: 1px solid var(--accent);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 3rem 2.5rem;
     width: 100%;
     max-width: 420px;
-    box-shadow: var(--glow-orange);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
 }
 
 .auth-card h1 {
@@ -101,9 +99,9 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     font-size: .85rem;
     font-weight: 600;
     margin-bottom: .4rem;
-    color: var(--accent);
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: .1em;
+    letter-spacing: .05em;
 }
 
 .form-group select,
@@ -118,8 +116,6 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     color: var(--text);
     font-size: 1rem;
     font-family: 'Roboto Condensed', sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     outline: none;
     transition: border-color .2s, box-shadow .2s;
 }
@@ -144,7 +140,6 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     letter-spacing: .1em;
     cursor: pointer;
     transition: all .2s;
-    transform: skewX(-3deg);
 }
 
 .btn-primary {
@@ -154,9 +149,8 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 }
 .btn-primary:hover {
     background: var(--accent2);
-    box-shadow: var(--glow-orange);
 }
-.btn-primary:active { transform: skewX(-3deg) scale(0.97); }
+.btn-primary:active { transform: scale(0.97); }
 
 .btn-secondary {
     background: transparent;
@@ -193,8 +187,8 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 
 /* ── Layout ────────────────────────────────────────────────── */
 .navbar {
-    background: rgba(0,0,0,0.85);
-    border-bottom: 2px solid var(--accent);
+    background: var(--surface);
+    border-bottom: 1px solid var(--accent);
     padding: 1rem 2rem;
     display: flex;
     align-items: center;
@@ -202,7 +196,6 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     position: sticky;
     top: 0;
     z-index: 100;
-    box-shadow: 0 2px 20px rgba(255,170,0,0.15);
 }
 
 .navbar .brand {
@@ -256,6 +249,89 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     text-shadow: 0 0 4px rgba(230,0,3,0.4);
 }
 
+/* ── Last Race Summary ─────────────────────────────────────── */
+.race-summary-card {
+    padding: 1rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: .75rem;
+}
+
+.race-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .75rem;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.race-summary-user {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.race-summary-rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+}
+
+.race-summary-total {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--accent);
+}
+
+.race-summary-picks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .5rem;
+}
+
+.race-summary-pick {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .6rem;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,170,0,0.1);
+    border-radius: var(--radius);
+}
+
+.race-summary-pick.constructor {
+    border-color: rgba(255,170,0,0.2);
+}
+
+.race-summary-pick-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.race-summary-pick-name {
+    font-size: .8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.race-summary-pick-pts {
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
 /* ── Dashboard Grid ────────────────────────────────────────── */
 .dashboard {
     display: grid;
@@ -288,9 +364,9 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     display: flex;
     align-items: center;
     gap: .5rem;
-    color: var(--accent);
-    text-shadow: var(--text-glow);
-    letter-spacing: .1em;
+    color: var(--text);
+    letter-spacing: .05em;
+    text-transform: uppercase;
 }
 
 .card h2 .icon { font-size: 1.2rem; }
@@ -347,11 +423,11 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 .leaderboard-table th {
     text-align: left;
     font-size: .75rem;
-    color: var(--accent);
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: .1em;
+    letter-spacing: .05em;
     padding: .5rem 0;
-    border-bottom: 1px solid var(--accent);
+    border-bottom: 1px solid var(--border);
 }
 
 .leaderboard-table td {
@@ -383,6 +459,7 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     height: 28px;
     border-radius: var(--radius);
     object-fit: cover;
+    object-position: top;
     vertical-align: middle;
     border: 1px solid var(--border);
 }
@@ -433,6 +510,14 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     background: var(--surface2);
     border: 1px solid var(--border);
     margin-bottom: .5rem;
+    overflow: visible;
+}
+
+.team-slot .driver-name {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .25rem;
 }
 
 .team-slot-left {
@@ -459,13 +544,16 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 .turbo-badge {
     background: var(--danger);
     color: #fff;
-    font-size: .7rem;
-    padding: .15rem .5rem;
+    font-size: .6rem;
+    padding: .1rem .35rem;
     border-radius: 2px;
     font-weight: 700;
     text-transform: uppercase;
-    margin-left: .35rem;
-    box-shadow: var(--glow-red);
+    margin-left: .25rem;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.2;
 }
 
 .cooldown-badge {
@@ -532,10 +620,9 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 .picker-section h3 {
     font-size: 1rem;
     margin-bottom: 1rem;
-    color: var(--accent);
+    color: var(--text);
     text-transform: uppercase;
-    letter-spacing: .1em;
-    text-shadow: var(--text-glow);
+    letter-spacing: .05em;
 }
 
 .picker-grid {
@@ -581,7 +668,7 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     gap: .75rem;
 }
 
-.picker-card .driver-info h4 { font-size: .95rem; margin-bottom: .15rem; }
+.picker-card .driver-info h4 { font-size: .95rem; margin-bottom: .15rem; padding-right: 3.5rem; }
 .picker-card .driver-info .team-name { font-size: .8rem; color: var(--text-dim); }
 .picker-card .price-tag {
     position: absolute;
@@ -617,8 +704,8 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 }
 
 .budget-bar {
-    background: rgba(0,0,0,0.7);
-    border: 1px solid var(--accent);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 1.25rem 1.5rem;
     margin-bottom: 1.5rem;
@@ -628,7 +715,6 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     position: sticky;
     top: 65px;
     z-index: 50;
-    box-shadow: var(--glow-orange);
 }
 
 .budget-bar .budget-info {
@@ -657,11 +743,11 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 .standings-table th {
     text-align: left;
     font-size: .7rem;
-    color: var(--accent);
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: .1em;
+    letter-spacing: .05em;
     padding: .4rem 0;
-    border-bottom: 1px solid var(--accent);
+    border-bottom: 1px solid var(--border);
 }
 
 .standings-table td {
@@ -684,6 +770,12 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     gap: 1.5rem;
 }
 
+/* ── Table scroll wrapper ──────────────────────────────────── */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 768px) {
     .admin-grid { grid-template-columns: 1fr; }
     .dashboard { grid-template-columns: 1fr; }
@@ -692,6 +784,9 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     .container { padding: 1rem; }
     .auth-card { margin: 1rem; padding: 2rem 1.5rem; }
     .picker-grid { grid-template-columns: 1fr; }
+    .hide-narrow { display: none; }
+    .leaderboard-table td, .leaderboard-table th { padding: .5rem .25rem; font-size: .85rem; }
+    .race-summary-picks { grid-template-columns: 1fr; }
 }
 
 /* ── Constructor color bar ─────────────────────────────────── */
@@ -704,9 +799,9 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #000; }
-::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
 /* ── Full-width card ───────────────────────────────────────── */
 .full-width { grid-column: 1 / -1; }
@@ -827,8 +922,7 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
 .cd-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--accent);
-    text-shadow: var(--text-glow);
+    color: var(--text);
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
