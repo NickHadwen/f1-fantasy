@@ -68,7 +68,6 @@
                             <br><span class="driver-team">{{ d.team }}</span>
                         </div>
                     </div>
-                    <span class="driver-price">${{ "%.1f"|format(d.price) }}M</span>
                 </div>
                 {% endfor %}
                 {% for c in season_constructors %}
@@ -80,7 +79,6 @@
                             <br><span class="driver-team">Constructor</span>
                         </div>
                     </div>
-                    <span class="driver-price">${{ "%.1f"|format(c.price) }}M</span>
                 </div>
                 {% endfor %}
             {% else %}

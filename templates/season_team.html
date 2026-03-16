@@ -25,13 +25,7 @@
     </div>
 
     <form method="POST">
-        <!-- Budget Bar -->
         <div class="budget-bar">
-            <div class="budget-info">
-                Budget: <span id="budgetSpent">$0.0M</span> / $100.0M
-                &nbsp;&middot;&nbsp;
-                Remaining: <span id="budgetRemaining" class="budget-remaining">$100.0M</span>
-            </div>
             <div>
                 Drivers: <span id="driverCount">0</span>/5
                 &nbsp;&middot;&nbsp;
@@ -54,7 +48,6 @@
                             <div class="points-tag">{{ d.points }} pts</div>
                         </div>
                     </div>
-                    <div class="price-tag">${{ "%.1f"|format(d.price) }}M</div>
                 </label>
                 {% endfor %}
             </div>
@@ -75,7 +68,6 @@
                         <div class="points-tag">{{ c.points }} pts</div>
                     </div>
                     </div>
-                    <div class="price-tag">${{ "%.1f"|format(c.price) }}M</div>
                 </label>
                 {% endfor %}
             </div>
@@ -85,7 +77,7 @@
         <div class="turbo-select">
             <h3 style="margin-bottom: .75rem;">Turbo Driver (2x points)</h3>
             <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
-                Choose one of your selected drivers to receive double points. Only drivers under ${{ "%.1f"|format(turbo_salary_cap) }}M are eligible.
+                Choose one of your selected drivers to receive double points.
             </p>
             <select name="turbo_driver" id="turboSelect" class="form-group" style="width: 100%; padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 1rem;">
                 <option value="">-- Select turbo driver --</option>
@@ -102,26 +94,9 @@
 
 {% block scripts %}
 <script>
-const budget = 100.0;
-const turboSalaryCap = {{ turbo_salary_cap }};
-
 function updateUI() {
     const driverChecks = document.querySelectorAll('input[name="drivers"]:checked');
     const constructorChecks = document.querySelectorAll('input[name="constructors"]:checked');
-
-    let spent = 0;
-    driverChecks.forEach(cb => {
-        spent += parseFloat(cb.closest('.picker-card').dataset.price);
-    });
-    constructorChecks.forEach(cb => {
-        spent += parseFloat(cb.closest('.picker-card').dataset.price);
-    });
-
-    const remaining = budget - spent;
-    document.getElementById('budgetSpent').textContent = `$${spent.toFixed(1)}M`;
-    const remEl = document.getElementById('budgetRemaining');
-    remEl.textContent = `$${remaining.toFixed(1)}M`;
-    remEl.className = remaining < 0 ? 'budget-remaining over' : 'budget-remaining';
 
     document.getElementById('driverCount').textContent = driverChecks.length;
     document.getElementById('constructorCount').textContent = constructorChecks.length;
@@ -131,12 +106,10 @@ function updateUI() {
     turboSelect.innerHTML = '<option value="">-- Select turbo driver --</option>';
     driverChecks.forEach(cb => {
         const card = cb.closest('.picker-card');
-        const price = parseFloat(card.dataset.price);
         const name = card.querySelector('h4').textContent;
-        if (price >= turboSalaryCap) return;
         const opt = document.createElement('option');
         opt.value = cb.value;
-        opt.textContent = name + ` ($${price.toFixed(1)}M)`;
+        opt.textContent = name;
         if (cb.value === currentTurbo) opt.selected = true;
         turboSelect.appendChild(opt);
     });
@@ -154,7 +127,6 @@ function updateUI() {
     if (driverChecks.length < 5) hints.push(`${5 - driverChecks.length} more driver${5 - driverChecks.length !== 1 ? 's' : ''}`);
     if (constructorChecks.length < 1) hints.push('1 constructor');
     if (!hasTurbo) hints.push('a turbo driver');
-    if (remaining < 0) hints.push('under budget');
 
     if (hints.length === 0) {
         saveBtn.disabled = false;

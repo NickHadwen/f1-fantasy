@@ -1266,21 +1266,6 @@ def season_team():
             flash("You must select a turbo driver.", "error")
             return redirect(url_for("season_team"))
 
-        # Check budget
-        total_cost = 0
-        for did in driver_ids:
-            d = db.execute("SELECT price FROM drivers WHERE id = ?", (did,)).fetchone()
-            if d:
-                total_cost += d["price"]
-        for cid in constructor_ids:
-            c = db.execute("SELECT price FROM constructors WHERE id = ?", (cid,)).fetchone()
-            if c:
-                total_cost += c["price"]
-
-        if total_cost > 100.0:
-            flash("Team exceeds $100M budget.", "error")
-            return redirect(url_for("season_team"))
-
         # Save season team
         for i, did in enumerate(driver_ids):
             is_turbo = 1 if did == turbo_driver else 0
@@ -1303,7 +1288,6 @@ def season_team():
         "season_team.html",
         drivers=drivers,
         constructors=constructors,
-        turbo_salary_cap=TURBO_SALARY_CAP,
     )
 
 
