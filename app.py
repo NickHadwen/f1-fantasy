@@ -282,6 +282,43 @@ CREATE TABLE IF NOT EXISTS pick_constructor_scores (
     points          INTEGER NOT NULL DEFAULT 0,
     UNIQUE(user_id, race_id, constructor_id)
 );
+
+CREATE TABLE IF NOT EXISTS season_teams (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    driver_id       INTEGER REFERENCES drivers(id),
+    constructor_id  INTEGER REFERENCES constructors(id),
+    is_turbo        INTEGER NOT NULL DEFAULT 0,
+    slot            INTEGER NOT NULL,
+    UNIQUE(user_id, slot)
+);
+
+CREATE TABLE IF NOT EXISTS season_scores (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    race_id     INTEGER NOT NULL REFERENCES races(id),
+    points      INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(user_id, race_id)
+);
+
+CREATE TABLE IF NOT EXISTS season_pick_scores (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    race_id         INTEGER NOT NULL REFERENCES races(id),
+    driver_id       INTEGER REFERENCES drivers(id),
+    points          INTEGER NOT NULL DEFAULT 0,
+    is_turbo        INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(user_id, race_id, driver_id)
+);
+
+CREATE TABLE IF NOT EXISTS season_pick_constructor_scores (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    race_id         INTEGER NOT NULL REFERENCES races(id),
+    constructor_id  INTEGER REFERENCES constructors(id),
+    points          INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(user_id, race_id, constructor_id)
+);
 """
 
 # ---------------------------------------------------------------------------
@@ -1112,6 +1149,164 @@ def home():
     )
 
 
+# ---------------------------------------------------------------------------
+# Season League
+# ---------------------------------------------------------------------------
+
+@app.route("/season")
+@login_required
+def season():
+    db = get_db()
+    user_id = session["user_id"]
+
+    last_race = db.execute(
+        "SELECT id FROM races WHERE completed = 1 ORDER BY round DESC LIMIT 1"
+    ).fetchone()
+    last_race_id = last_race["id"] if last_race else None
+
+    leaderboard = db.execute("""
+        SELECT u.id, u.username,
+               COALESCE(SUM(ss.points), 0) as total_points,
+               COALESCE((SELECT points FROM season_scores WHERE user_id = u.id AND race_id = ?), 0) as last_race_pts
+        FROM users u
+        LEFT JOIN season_scores ss ON u.id = ss.user_id
+        WHERE u.id IN (SELECT DISTINCT user_id FROM season_teams)
+        GROUP BY u.id
+        ORDER BY total_points DESC
+    """, (last_race_id,)).fetchall()
+
+    # User's season team
+    season_drivers = db.execute("""
+        SELECT d.*, st.is_turbo, st.slot
+        FROM season_teams st
+        JOIN drivers d ON st.driver_id = d.id
+        WHERE st.user_id = ? AND st.driver_id IS NOT NULL
+        ORDER BY st.slot
+    """, (user_id,)).fetchall()
+
+    season_constructors = db.execute("""
+        SELECT c.*, st.slot
+        FROM season_teams st
+        JOIN constructors c ON st.constructor_id = c.id
+        WHERE st.user_id = ? AND st.constructor_id IS NOT NULL
+    """, (user_id,)).fetchall()
+
+    has_season_team = len(season_drivers) > 0
+
+    # Last race summary
+    last_race_summary = []
+    last_race_info = None
+    if last_race_id:
+        last_race_info = db.execute("SELECT * FROM races WHERE id = ?", (last_race_id,)).fetchone()
+        users_list = db.execute("SELECT DISTINCT user_id FROM season_teams").fetchall()
+        for u in users_list:
+            uid = u["user_id"]
+            uname = db.execute("SELECT username FROM users WHERE id = ?", (uid,)).fetchone()["username"]
+            score_row = db.execute(
+                "SELECT points FROM season_scores WHERE user_id = ? AND race_id = ?",
+                (uid, last_race_id)
+            ).fetchone()
+            total_pts = score_row["points"] if score_row else 0
+            driver_picks = db.execute("""
+                SELECT d.name, ps.points, ps.is_turbo
+                FROM season_pick_scores ps
+                JOIN drivers d ON ps.driver_id = d.id
+                WHERE ps.user_id = ? AND ps.race_id = ?
+                ORDER BY ps.points DESC
+            """, (uid, last_race_id)).fetchall()
+            constructor_picks = db.execute("""
+                SELECT c.name, ps.points
+                FROM season_pick_constructor_scores ps
+                JOIN constructors c ON ps.constructor_id = c.id
+                WHERE ps.user_id = ? AND ps.race_id = ?
+            """, (uid, last_race_id)).fetchall()
+            last_race_summary.append({
+                "username": uname,
+                "total_points": total_pts,
+                "drivers": [{"name": p["name"], "points": p["points"], "is_turbo": p["is_turbo"]} for p in driver_picks],
+                "constructors": [{"name": p["name"], "points": p["points"]} for p in constructor_picks],
+            })
+        last_race_summary.sort(key=lambda x: x["total_points"], reverse=True)
+
+    return render_template(
+        "season.html",
+        leaderboard=leaderboard,
+        season_drivers=season_drivers,
+        season_constructors=season_constructors,
+        has_season_team=has_season_team,
+        last_race_summary=last_race_summary,
+        last_race_info=last_race_info,
+    )
+
+
+@app.route("/season/team", methods=["GET", "POST"])
+@login_required
+def season_team():
+    db = get_db()
+    user_id = session["user_id"]
+
+    # Check if user already has a season team
+    existing = db.execute("SELECT COUNT(*) as c FROM season_teams WHERE user_id = ?", (user_id,)).fetchone()["c"]
+    if existing:
+        flash("Your season team is already locked in.", "error")
+        return redirect(url_for("season"))
+
+    if request.method == "POST":
+        driver_ids = request.form.getlist("drivers")
+        constructor_ids = request.form.getlist("constructors")
+        turbo_driver = request.form.get("turbo_driver", "")
+
+        if len(driver_ids) != 5:
+            flash("You must select exactly 5 drivers.", "error")
+            return redirect(url_for("season_team"))
+        if len(constructor_ids) != 1:
+            flash("You must select exactly 1 constructor.", "error")
+            return redirect(url_for("season_team"))
+        if not turbo_driver:
+            flash("You must select a turbo driver.", "error")
+            return redirect(url_for("season_team"))
+
+        # Check budget
+        total_cost = 0
+        for did in driver_ids:
+            d = db.execute("SELECT price FROM drivers WHERE id = ?", (did,)).fetchone()
+            if d:
+                total_cost += d["price"]
+        for cid in constructor_ids:
+            c = db.execute("SELECT price FROM constructors WHERE id = ?", (cid,)).fetchone()
+            if c:
+                total_cost += c["price"]
+
+        if total_cost > 100.0:
+            flash("Team exceeds $100M budget.", "error")
+            return redirect(url_for("season_team"))
+
+        # Save season team
+        for i, did in enumerate(driver_ids):
+            is_turbo = 1 if did == turbo_driver else 0
+            db.execute(
+                "INSERT INTO season_teams (user_id, driver_id, is_turbo, slot) VALUES (?,?,?,?)",
+                (user_id, did, is_turbo, i + 1)
+            )
+        db.execute(
+            "INSERT INTO season_teams (user_id, constructor_id, is_turbo, slot) VALUES (?,?,0,?)",
+            (user_id, constructor_ids[0], 6)
+        )
+        db.commit()
+        flash("Season team locked in!", "success")
+        return redirect(url_for("season"))
+
+    drivers = db.execute("SELECT * FROM drivers ORDER BY price DESC").fetchall()
+    constructors = db.execute("SELECT * FROM constructors ORDER BY price DESC").fetchall()
+
+    return render_template(
+        "season_team.html",
+        drivers=drivers,
+        constructors=constructors,
+        turbo_salary_cap=TURBO_SALARY_CAP,
+    )
+
+
 @app.route("/team", methods=["GET", "POST"])
 @login_required
 def team():
@@ -1824,10 +2019,61 @@ def score_race(db, race_id, rescore=False):
     # Dynamic pricing
     update_driver_prices(db, race_id)
 
+    # Score season league
+    score_season_league(db, race_id, driver_points, constructor_points)
+
     if not rescore:
         process_lock_decrements(db, race_id)
     db.execute("UPDATE races SET completed = 1 WHERE id = ?", (race_id,))
     db.commit()
+
+
+def score_season_league(db, race_id, driver_points, constructor_points):
+    """Score the season league using fixed season teams."""
+    # Clean previous scores for this race (safe since teams never change)
+    db.execute("DELETE FROM season_scores WHERE race_id = ?", (race_id,))
+    db.execute("DELETE FROM season_pick_scores WHERE race_id = ?", (race_id,))
+    db.execute("DELETE FROM season_pick_constructor_scores WHERE race_id = ?", (race_id,))
+
+    users = db.execute("SELECT DISTINCT user_id FROM season_teams").fetchall()
+    for user in users:
+        uid = user["user_id"]
+        user_pts = 0
+
+        picks = db.execute(
+            "SELECT driver_id, is_turbo FROM season_teams WHERE user_id = ? AND driver_id IS NOT NULL",
+            (uid,)
+        ).fetchall()
+        cpicks = db.execute(
+            "SELECT constructor_id FROM season_teams WHERE user_id = ? AND constructor_id IS NOT NULL",
+            (uid,)
+        ).fetchall()
+
+        has_full_lineup = len(picks) >= 5 and len(cpicks) >= 1
+
+        for pick in picks:
+            dp = driver_points.get(pick["driver_id"], 0)
+            is_turbo = pick["is_turbo"] and has_full_lineup
+            if is_turbo:
+                dp *= 2
+            user_pts += dp
+            db.execute("""
+                INSERT INTO season_pick_scores (user_id, race_id, driver_id, points, is_turbo) VALUES (?, ?, ?, ?, ?)
+            """, (uid, race_id, pick["driver_id"], dp, int(is_turbo)))
+
+        for cpick in cpicks:
+            cname = db.execute("SELECT name FROM constructors WHERE id = ?", (cpick["constructor_id"],)).fetchone()
+            if cname:
+                cpts = constructor_points.get(cname["name"], 0)
+                user_pts += cpts
+                db.execute("""
+                    INSERT INTO season_pick_constructor_scores (user_id, race_id, constructor_id, points) VALUES (?, ?, ?, ?)
+                """, (uid, race_id, cpick["constructor_id"], cpts))
+
+        db.execute("""
+            INSERT INTO season_scores (user_id, race_id, points) VALUES (?, ?, ?)
+            ON CONFLICT(user_id, race_id) DO UPDATE SET points = ?
+        """, (uid, race_id, user_pts, user_pts))
 
 
 if __name__ == "__main__":
