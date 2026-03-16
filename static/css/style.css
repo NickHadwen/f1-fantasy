@@ -239,6 +239,23 @@ a:hover { text-decoration: underline; text-shadow: var(--text-glow); }
     padding: 2rem;
 }
 
+/* ── Position change arrows ────────────────────────────────── */
+.pos-change {
+    font-size: .7rem;
+    font-weight: 700;
+    margin-left: .4rem;
+    padding: .1rem .3rem;
+    border-radius: 2px;
+}
+.pos-change.up {
+    color: var(--green);
+    text-shadow: 0 0 4px rgba(0,255,128,0.4);
+}
+.pos-change.down {
+    color: var(--danger);
+    text-shadow: 0 0 4px rgba(230,0,3,0.4);
+}
+
 /* ── Dashboard Grid ────────────────────────────────────────── */
 .dashboard {
     display: grid;

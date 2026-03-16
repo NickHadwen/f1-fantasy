@@ -937,6 +937,25 @@ def home():
         ORDER BY total_points DESC
     """, (last_race_id,)).fetchall()
 
+    # Calculate position changes: compare current ranking to ranking before the last race
+    prev_positions = {}
+    if last_race_id:
+        prev_leaderboard = db.execute("""
+            SELECT u.id, COALESCE(SUM(us.points), 0) as total_points
+            FROM users u
+            LEFT JOIN user_scores us ON u.id = us.user_id AND us.race_id != ?
+            GROUP BY u.id
+            ORDER BY total_points DESC
+        """, (last_race_id,)).fetchall()
+        for i, row in enumerate(prev_leaderboard):
+            prev_positions[row["id"]] = i + 1
+
+    position_changes = {}
+    for i, row in enumerate(leaderboard):
+        current_pos = i + 1
+        prev_pos = prev_positions.get(row["id"], current_pos)
+        position_changes[row["id"]] = prev_pos - current_pos  # positive = moved up
+
     team_drivers = db.execute("""
         SELECT d.*, ut.is_turbo, ut.slot, ut.lock_duration, ut.lock_remaining, ut.on_cooldown
         FROM user_teams ut
@@ -1046,6 +1065,7 @@ def home():
         needs_picks=needs_picks,
         last_race_summary=last_race_summary,
         last_race_info=last_race_info,
+        position_changes=position_changes,
     )
 
 
