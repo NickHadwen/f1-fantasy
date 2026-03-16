@@ -3,7 +3,7 @@ import sqlite3
 import secrets
 import urllib.request
 import json
-from math import ceil
+from math import ceil, trunc
 from functools import wraps
 from dotenv import load_dotenv
 from flask import (
@@ -180,22 +180,24 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS drivers (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    team        TEXT NOT NULL,
-    price       REAL NOT NULL,
-    points      INTEGER NOT NULL DEFAULT 0,
-    number      INTEGER,
-    country     TEXT,
-    portrait    TEXT
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    team            TEXT NOT NULL,
+    price           REAL NOT NULL,
+    price_change    REAL NOT NULL DEFAULT 0,
+    points          INTEGER NOT NULL DEFAULT 0,
+    number          INTEGER,
+    country         TEXT,
+    portrait        TEXT
 );
 
 CREATE TABLE IF NOT EXISTS constructors (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    price       REAL NOT NULL,
-    points      INTEGER NOT NULL DEFAULT 0,
-    color       TEXT DEFAULT '#ffffff'
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    price           REAL NOT NULL,
+    price_change    REAL NOT NULL DEFAULT 0,
+    points          INTEGER NOT NULL DEFAULT 0,
+    color           TEXT DEFAULT '#ffffff'
 );
 
 CREATE TABLE IF NOT EXISTS races (
@@ -267,10 +269,18 @@ CREATE TABLE IF NOT EXISTS pick_scores (
     user_id         INTEGER NOT NULL REFERENCES users(id),
     race_id         INTEGER NOT NULL REFERENCES races(id),
     driver_id       INTEGER REFERENCES drivers(id),
-    constructor_id  INTEGER REFERENCES constructors(id),
     points          INTEGER NOT NULL DEFAULT 0,
     is_turbo        INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(user_id, race_id, driver_id, constructor_id)
+    UNIQUE(user_id, race_id, driver_id)
+);
+
+CREATE TABLE IF NOT EXISTS pick_constructor_scores (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    race_id         INTEGER NOT NULL REFERENCES races(id),
+    constructor_id  INTEGER REFERENCES constructors(id),
+    points          INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(user_id, race_id, constructor_id)
 );
 """
 
@@ -312,12 +322,6 @@ CONSTRUCTOR_RACE_PTS[0] = 0
 CONSTRUCTOR_QUALI_PTS = {0: 0}
 for i in range(1, 23):
     CONSTRUCTOR_QUALI_PTS[i] = 30 - (i - 1)
-
-# Dynamic pricing
-PRICE_CHANGE_PER_50_PTS = 0.5
-MAX_PRICE_CHANGE = 2.0
-MIN_DRIVER_PRICE = 3.0
-
 
 def calc_completion_pts(laps, total_laps):
     """Points for completing race distance milestones. Uses (laps+1)/maxlaps."""
@@ -388,7 +392,7 @@ def calc_driver_race_points(result, teammate_finish=None, db=None):
         pts += SPRINT_PTS.get(sp, 0)
 
     # Completion points
-    pts += calc_completion_pts(laps, result["total_laps"])
+    pts += calc_completion_pts(result["laps"], result["total_laps"])
 
     # Beating teammate
     if teammate_finish:
@@ -413,81 +417,120 @@ def calc_constructor_race_points(driver_positions, driver_quali_positions):
     return pts
 
 
-def calculate_value(previous, current):
-    """Salary value: calculate new salary value from salary variation formula"""
-    #not sure how it's meant to round down with negative numbers e.g. should -2.15 be -2.1 or -2.2?
-    return previous + round((previous - current)/4, 1)
-
 def update_driver_prices(db, race_id):
-    """Adjust driver prices based on race performance (dynamic pricing)."""
-    results = db.execute("SELECT * FROM race_results WHERE race_id = ?", (race_id,)).fetchall()
-    if not results:
-        return
+    """Adjust driver prices based on race performance."""
 
-    drivers_all = db.execute("SELECT id, team FROM drivers").fetchall()
-    team_drivers = {}
-    for d in drivers_all:
-        team_drivers.setdefault(d["team"], []).append(d["id"])
+    base_salaries = {
+        1: 34,
+        2: 32.4,
+        3: 30.8,
+        4: 29.2,
+        5: 27.6,
+        6: 26,
+        7: 24.4,
+        8: 22.8,
+        9: 21.2,
+        10: 19.6,
+        11: 18,
+        12: 16.4,
+        13: 14.8,
+        14: 13.2,
+        15: 11.6,
+        16: 10,
+        17: 8.4,
+        18: 6.8,
+        19: 5.2,
+        20: 3.60,
+        21: 2,
+        22: 0.4
+    }
 
-    result_map = {r["driver_id"]: r for r in results}
+    #caluclate change in driver salary based on performance
+    results = db.execute("SELECT id, price, price_change, points FROM drivers").fetchall()
+    sorted_results = sorted(results, key=lambda results: results['points'], reverse=True)
+    for i in range(0, len(sorted_results)):
+        #previous salary - base salary for position
+        value = (base_salaries[i+1] - sorted_results[i][1])/4
+        rounded_value = trunc(value * 10) / 10
+        if rounded_value > 2:
+            rounded_value = 2
+        elif rounded_value < -2:
+            rounded_value = -2
+        #update database
+        db.execute("UPDATE drivers SET price = price + ?, price_change = ? WHERE id = ?",
+                        (rounded_value, rounded_value, sorted_results[i]["id"])
+         )
+    db.commit()
 
-    driver_pts = {}
+    base_constructiors = {
+    1: 30,
+    2: 27.4,
+    3: 24.8,
+    4: 22.2,
+    5: 19.6,
+    6: 17,
+    7: 14.4,
+    8: 11.8,
+    9: 9.2,
+    10: 6.6,
+    11: 4
+    }
+
+    #calculate change in driver salry based on performance
+    results = db.execute("SELECT id, price, points FROM constructors").fetchall()
+    sorted_results = sorted(results, key=lambda results: results['points'], reverse=True)
+    for i in range(0, len(sorted_results)):
+        #previous salary - base salary for position
+        value = (base_constructiors[i+1] - sorted_results[i][1])/4
+        rounded_value = trunc(value * 10) / 10
+        if rounded_value > 3:
+            rounded_value = 3
+        elif rounded_value < -3:
+            rounded_value = -3
+        #updata database
+        db.execute("UPDATE constructors SET price = price + ?, price_change = ? WHERE id = ?",
+                        (rounded_value, rounded_value, sorted_results[i]["id"])
+        )
+    db.commit()
+
+    #update driver cost for everyone who has them
+    results = db.execute("SELECT * FROM drivers").fetchall()
     for r in results:
-        did = r["driver_id"]
-        driver_team = None
-        for d in drivers_all:
-            if d["id"] == did:
-                driver_team = d["team"]
-                break
-        teammate_finish = None
-        if driver_team:
-            for tid in team_drivers.get(driver_team, []):
-                if tid != did and tid in result_map:
-                    teammate_finish = result_map[tid]["position"]
-                    break
-
-        pts = calc_driver_race_points(r, teammate_finish, db)
-        driver_pts[did] = pts
-
-    if not driver_pts:
-        return
-
-    avg_pts = sum(driver_pts.values()) / len(driver_pts)
-
-    for did, pts in driver_pts.items():
-        diff = pts - avg_pts
-        price_change = (diff / 50.0) * PRICE_CHANGE_PER_50_PTS
-        price_change = max(-MAX_PRICE_CHANGE, min(MAX_PRICE_CHANGE, price_change))
-        price_change = round(price_change * 2) / 2
-
-        if price_change != 0:
-            # Get old price before update for budget adjustments
-            old_price_row = db.execute("SELECT price FROM drivers WHERE id = ?", (did,)).fetchone()
-            old_price = old_price_row["price"]
-            db.execute(
-                "UPDATE drivers SET price = MAX(?, price + ?) WHERE id = ?",
-                (MIN_DRIVER_PRICE, price_change, did)
-            )
-            # Calculate actual delta (price may have been clamped at MIN_DRIVER_PRICE)
-            new_price_row = db.execute("SELECT price FROM drivers WHERE id = ?", (did,)).fetchone()
-            actual_delta = new_price_row["price"] - old_price
-            if actual_delta != 0:
-                # Adjust budget for every user who has this driver.
-                # Check race_picks first (permanent record), fall back to user_teams.
-                pick_users = db.execute(
+        pick_users = db.execute(
                     "SELECT DISTINCT user_id FROM race_picks WHERE race_id = ? AND driver_id = ?",
-                    (race_id, did)
-                ).fetchall()
-                if not pick_users:
-                    pick_users = db.execute(
-                        "SELECT DISTINCT user_id FROM user_teams WHERE driver_id = ? AND on_cooldown = 0",
-                        (did,)
-                    ).fetchall()
-                for u in pick_users:
-                    db.execute(
-                        "UPDATE users SET budget = budget + ? WHERE id = ?",
-                        (actual_delta, u["user_id"])
-                    )
+                    (race_id, r["id"])
+        ).fetchall()
+        if not pick_users:
+            pick_users = db.execute(
+                "SELECT DISTINCT user_id FROM user_teams WHERE driver_id = ? AND on_cooldown = 0",
+                    (r["id"],)
+        ).fetchall()
+        
+        for u in pick_users:
+            db.execute(
+                "UPDATE users SET budget = budget + ? WHERE id = ?",
+                    (r["price_change"], u["user_id"])
+        )
+
+    #update constructor cost for everyone who has them
+    results = db.execute("SELECT * FROM constructors").fetchall()
+    for r in results:
+        pick_users = db.execute(
+                    "SELECT DISTINCT user_id FROM race_picks WHERE race_id = ? AND constructor_id = ?",
+                    (race_id, r["id"])
+        ).fetchall()
+        if not pick_users:
+            pick_users = db.execute(
+                "SELECT DISTINCT user_id FROM user_teams WHERE constructor_id = ? AND on_cooldown = 0",
+                    (r["id"],)
+        ).fetchall()
+        for u in pick_users:
+            db.execute(
+                "UPDATE users SET budget = budget + ? WHERE id = ?",
+                    (r["price_change"], u["user_id"])
+        )
+            
+        
 
 
 # ---------------------------------------------------------------------------
@@ -1005,7 +1048,7 @@ def home():
             """, (u["id"], last_race_id)).fetchall()
             constructor_picks = db.execute("""
                 SELECT c.name, ps.points
-                FROM pick_scores ps
+                FROM pick_constructor_scores ps
                 JOIN constructors c ON ps.constructor_id = c.id
                 WHERE ps.user_id = ? AND ps.race_id = ? AND ps.constructor_id IS NOT NULL
             """, (u["id"], last_race_id)).fetchall()
@@ -1492,46 +1535,59 @@ def admin():
                         db.execute("UPDATE drivers SET points = points - ? WHERE id = ?", (old_pts, did))
 
                     for team_name, dids in team_drivers.items():
-                        rp = [old_result_map[did]["position"] for did in dids if did in old_result_map and old_result_map[did]["position"]]
+                        rp = [old_result_map[did]["position"] for did in dids if did in old_result_map and old_result_map[did]["position"] and old_result_map[did]["status"] not in ['Did not start', 'Disqualified']]
                         qp = [old_result_map[did]["quali_pos"] for did in dids if did in old_result_map and old_result_map[did]["quali_pos"]]
                         old_cpts = calc_constructor_race_points(rp, qp)
                         if old_cpts:
                             db.execute("UPDATE constructors SET points = points - ? WHERE name = ?", (old_cpts, team_name))
 
                     # Undo price changes (reverse dynamic pricing)
-                    if old_results:
-                        old_driver_pts = {}
-                        for r in old_results:
-                            did = r["driver_id"]
-                            driver_team = team_map.get(did)
-                            tm_finish = None
-                            if driver_team:
-                                for tid in team_drivers.get(driver_team, []):
-                                    if tid != did and tid in old_result_map:
-                                        tm_finish = old_result_map[tid]["position"]
-                                        break
-                            old_driver_pts[did] = calc_driver_race_points(r, tm_finish, db)
+                    #undo driver salaries
+                    results = db.execute("SELECT id, price, price_change, points FROM drivers").fetchall()
+                    for r in results:
+                        db.execute("UPDATE drivers SET price = price - ?WHERE id = ?",
+                                        (r["price_change"], r["id"])
+                        )
+                        pick_users = db.execute(
+                                    "SELECT DISTINCT user_id FROM race_picks WHERE race_id = ? AND driver_id = ?",
+                                    (race_id, r["id"])
+                        ).fetchall()
+                        if not pick_users:
+                            pick_users = db.execute(
+                                "SELECT DISTINCT user_id FROM user_teams WHERE driver_id = ? AND on_cooldown = 0",
+                                    (r["id"],)
+                        ).fetchall()
+                        
+                        for u in pick_users:
+                            db.execute(
+                                "UPDATE users SET budget = budget - ? WHERE id = ?",
+                                    (r["price_change"], u["user_id"])
+                        )
+                    db.commit()
 
-                        if old_driver_pts:
-                            old_avg = sum(old_driver_pts.values()) / len(old_driver_pts)
-                            for did, pts in old_driver_pts.items():
-                                diff = pts - old_avg
-                                pc = (diff / 50.0) * PRICE_CHANGE_PER_50_PTS
-                                pc = max(-MAX_PRICE_CHANGE, min(MAX_PRICE_CHANGE, pc))
-                                pc = round(pc * 2) / 2
-                                if pc != 0:
-                                    db.execute(
-                                        "UPDATE drivers SET price = MAX(?, price - ?) WHERE id = ?",
-                                        (MIN_DRIVER_PRICE, pc, did)
-                                    )
-
-                    # Reset all user budgets to 100.0 before re-scoring
-                    # (budget adjustments will be re-applied cleanly by update_driver_prices)
-                    db.execute("UPDATE users SET budget = 100.0")
-
-                    db.execute("DELETE FROM user_scores WHERE race_id = ?", (race_id,))
-                    db.execute("DELETE FROM pick_scores WHERE race_id = ?", (race_id,))
-                    db.execute("UPDATE races SET completed = 0 WHERE id = ?", (race_id,))
+                    #calculate change in driver salry based on performance
+                    #undo constructor salaries
+                    results = db.execute("SELECT id, price, price_change, points FROM constructors").fetchall()
+                    for r in results:
+                        db.execute("UPDATE constructors SET price = price - ? WHERE id = ?",
+                                        (r["price_change"], r["id"])
+                        )
+                        pick_users = db.execute(
+                                    "SELECT DISTINCT user_id FROM race_picks WHERE race_id = ? AND constructor_id = ?",
+                                    (race_id, r["id"])
+                        ).fetchall()
+                        if not pick_users:
+                            pick_users = db.execute(
+                                "SELECT DISTINCT user_id FROM user_teams WHERE constructor_id = ? AND on_cooldown = 0",
+                                    (r["id"],)
+                        ).fetchall()
+                        for u in pick_users:
+                            db.execute(
+                                "UPDATE users SET budget = budget - ? WHERE id = ?",
+                                    (r["price_change"], u["user_id"])
+                        )
+                    db.commit()
+                   
                 # Auto-fetch results from F1 API
                 results, err = fetch_race_results(race["round"])
                 if err:
@@ -1677,17 +1733,17 @@ def score_race(db, race_id, rescore=False):
 
         pts = calc_driver_race_points(r, teammate_finish, db)
         driver_points[did] = pts
-        db.execute("UPDATE drivers SET points = points + ? WHERE id = ?", (pts, did))
+        db.execute("UPDATE drivers SET points = ? WHERE id = ?", (pts, did))
 
     # Calculate constructor points: map each driver's position, then sum per team
     constructor_points = {}
     for team_name, driver_ids in team_drivers.items():
-        race_positions = [result_map[did]["position"] for did in driver_ids if did in result_map and result_map[did]["position"]]
+        race_positions = [result_map[did]["position"] for did in driver_ids if did in result_map and result_map[did]["position"] and result_map[did]["status"] not in ['Did not start', 'Disqualified']]
         quali_positions = [result_map[did]["quali_pos"] for did in driver_ids if did in result_map and result_map[did]["quali_pos"]]
         cpts = calc_constructor_race_points(race_positions, quali_positions)
         constructor_points[team_name] = cpts
         if cpts:
-            db.execute("UPDATE constructors SET points = points + ? WHERE name = ?", (cpts, team_name))
+            db.execute("UPDATE constructors SET points = ? WHERE name = ?", (cpts, team_name))
 
     # Score each user
     users = db.execute("SELECT id FROM users").fetchall()
@@ -1727,8 +1783,8 @@ def score_race(db, race_id, rescore=False):
             user_pts += dp
             db.execute("""
                 INSERT INTO pick_scores (user_id, race_id, driver_id, points, is_turbo) VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(user_id, race_id, driver_id, constructor_id) DO UPDATE SET points = ?, is_turbo = ?
-            """, (uid, race_id, pick["driver_id"], dp, int(is_turbo), dp, int(is_turbo)))
+                ON CONFLICT(user_id, race_id, driver_id) DO UPDATE SET points = excluded.points, is_turbo = excluded.is_turbo
+            """, (uid, race_id, pick["driver_id"], dp, int(is_turbo)))
 
         for cpick in cpicks:
             cname = db.execute("SELECT name FROM constructors WHERE id = ?", (cpick["constructor_id"],)).fetchone()
@@ -1736,9 +1792,9 @@ def score_race(db, race_id, rescore=False):
                 cpts = constructor_points.get(cname["name"], 0)
                 user_pts += cpts
                 db.execute("""
-                    INSERT INTO pick_scores (user_id, race_id, constructor_id, points) VALUES (?, ?, ?, ?)
-                    ON CONFLICT(user_id, race_id, driver_id, constructor_id) DO UPDATE SET points = ?
-                """, (uid, race_id, cpick["constructor_id"], cpts, cpts))
+                    INSERT INTO pick_constructor_scores (user_id, race_id, constructor_id, points) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id, race_id, constructor_id) DO UPDATE SET points = excluded.points
+                """, (uid, race_id, cpick["constructor_id"], cpts))
 
         db.execute("""
             INSERT INTO user_scores (user_id, race_id, points) VALUES (?, ?, ?)
