@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Pick Season Team - F1 Fantasy{% endblock %}
 {% block body %}
+<div class="season-theme">
 <header class="navbar">
     <span class="brand">F1 Fantasy</span>
     <nav>
@@ -19,7 +20,7 @@
     {% endfor %}
     {% endwith %}
 
-    <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,170,0,0.08); border: 1px solid var(--accent); border-radius: var(--radius); text-align: center;">
+    <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(74,158,255,0.08); border: 1px solid var(--accent); border-radius: var(--radius); text-align: center;">
         <strong style="color: var(--accent);">This team is permanent for the entire season. Choose wisely.</strong>
     </div>
 
@@ -95,6 +96,7 @@
         <button type="submit" class="btn btn-primary" id="saveBtn" style="max-width: 300px;" disabled>Lock In Season Team</button>
         <p id="saveHint" style="color: var(--text-dim); font-size: .85rem; margin-top: .5rem;"></p>
     </form>
+</div>
 </div>
 {% endblock %}
 
