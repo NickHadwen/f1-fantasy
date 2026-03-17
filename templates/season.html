@@ -81,6 +81,25 @@
                     </div>
                 </div>
                 {% endfor %}
+
+                <!-- Turbo selector -->
+                {% if not lineup_locked %}
+                <form method="POST" style="margin-top: 1rem; padding: .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);">
+                    <label style="font-size: .85rem; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: .4rem;">Change Turbo Driver</label>
+                    <div style="display: flex; gap: .5rem; align-items: center;">
+                        <select name="turbo_driver" style="flex: 1; padding: .5rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: .9rem;">
+                            {% for d in season_drivers %}
+                            <option value="{{ d.id }}" {{ 'selected' if turbo_id == d.id|string }}>{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary" style="width: auto; padding: .5rem 1rem; font-size: .85rem;">Update</button>
+                    </div>
+                </form>
+                {% else %}
+                <div style="margin-top: .75rem; padding: .5rem .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); font-size: .8rem; color: var(--text-dim);">
+                    Turbo locked until race is scored
+                </div>
+                {% endif %}
             {% else %}
                 <div class="empty-team">
                     <p>You haven't picked a season team yet.</p>

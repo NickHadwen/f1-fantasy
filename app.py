@@ -1153,11 +1153,25 @@ def home():
 # Season League
 # ---------------------------------------------------------------------------
 
-@app.route("/season")
+@app.route("/season", methods=["GET", "POST"])
 @login_required
 def season():
     db = get_db()
     user_id = session["user_id"]
+
+    # Handle turbo change
+    if request.method == "POST":
+        new_turbo = request.form.get("turbo_driver", "")
+        if new_turbo and not is_lineup_locked(db):
+            # Reset all turbo flags for this user's season team
+            db.execute("UPDATE season_teams SET is_turbo = 0 WHERE user_id = ?", (user_id,))
+            db.execute("UPDATE season_teams SET is_turbo = 1 WHERE user_id = ? AND driver_id = ?",
+                        (user_id, new_turbo))
+            db.commit()
+            flash("Turbo driver updated!", "success")
+        elif is_lineup_locked(db):
+            flash("Lineups are locked. Can't change turbo driver.", "error")
+        return redirect(url_for("season"))
 
     last_race = db.execute(
         "SELECT id FROM races WHERE completed = 1 ORDER BY round DESC LIMIT 1"
@@ -1192,6 +1206,8 @@ def season():
     """, (user_id,)).fetchall()
 
     has_season_team = len(season_drivers) > 0
+    lineup_locked = is_lineup_locked(db)
+    turbo_id = next((str(d["id"]) for d in season_drivers if d["is_turbo"]), None)
 
     # Last race summary
     last_race_summary = []
@@ -1234,6 +1250,8 @@ def season():
         season_drivers=season_drivers,
         season_constructors=season_constructors,
         has_season_team=has_season_team,
+        lineup_locked=lineup_locked,
+        turbo_id=turbo_id,
         last_race_summary=last_race_summary,
         last_race_info=last_race_info,
     )
