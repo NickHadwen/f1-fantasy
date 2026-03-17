@@ -67,7 +67,7 @@
         <div class="turbo-select">
             <h3 style="margin-bottom: .75rem;">Turbo Driver (2x points)</h3>
             <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
-                Choose one of your selected drivers to receive double points.
+                Choose one of your selected drivers to receive double points. Only drivers under ${{ "%.1f"|format(turbo_salary_cap) }}M are eligible.
             </p>
             <select name="turbo_driver" id="turboSelect" class="form-group" style="width: 100%; padding: .75rem 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 1rem;">
                 <option value="">-- Select turbo driver --</option>
@@ -83,6 +83,8 @@
 
 {% block scripts %}
 <script>
+const turboSalaryCap = {{ turbo_salary_cap }};
+
 function updateUI() {
     const driverChecks = document.querySelectorAll('input[name="drivers"]:checked');
     const constructorChecks = document.querySelectorAll('input[name="constructors"]:checked');
@@ -95,10 +97,12 @@ function updateUI() {
     turboSelect.innerHTML = '<option value="">-- Select turbo driver --</option>';
     driverChecks.forEach(cb => {
         const card = cb.closest('.picker-card');
+        const price = parseFloat(card.dataset.price);
+        if (price >= turboSalaryCap) return;
         const name = card.querySelector('h4').textContent;
         const opt = document.createElement('option');
         opt.value = cb.value;
-        opt.textContent = name;
+        opt.textContent = name + ` ($${price.toFixed(1)}M)`;
         if (cb.value === currentTurbo) opt.selected = true;
         turboSelect.appendChild(opt);
     });

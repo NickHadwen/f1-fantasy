@@ -75,11 +75,13 @@
                 <!-- Turbo selector -->
                 {% if not lineup_locked %}
                 <form method="POST" style="margin-top: 1rem; padding: .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);">
-                    <label style="font-size: .85rem; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: .4rem;">Change Turbo Driver</label>
+                    <label style="font-size: .85rem; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: .4rem;">Change Turbo Driver <span style="font-weight:400;">(under ${{ "%.1f"|format(turbo_salary_cap) }}M)</span></label>
                     <div style="display: flex; gap: .5rem; align-items: center;">
                         <select name="turbo_driver" style="flex: 1; padding: .5rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: .9rem;">
                             {% for d in season_drivers %}
-                            <option value="{{ d.id }}" {{ 'selected' if turbo_id == d.id|string }}>{{ d.name }}</option>
+                            {% if d.price < turbo_salary_cap %}
+                            <option value="{{ d.id }}" {{ 'selected' if turbo_id == d.id|string }}>{{ d.name }} (${{ "%.1f"|format(d.price) }}M)</option>
+                            {% endif %}
                             {% endfor %}
                         </select>
                         <button type="submit" class="btn btn-primary" style="width: auto; padding: .5rem 1rem; font-size: .85rem;">Update</button>

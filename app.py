@@ -1163,6 +1163,11 @@ def season():
     if request.method == "POST":
         new_turbo = request.form.get("turbo_driver", "")
         if new_turbo and not is_lineup_locked(db):
+            # Check salary cap
+            turbo_d = db.execute("SELECT price FROM drivers WHERE id = ?", (new_turbo,)).fetchone()
+            if turbo_d and turbo_d["price"] >= TURBO_SALARY_CAP:
+                flash(f"Turbo driver must be under ${TURBO_SALARY_CAP:.1f}M.", "error")
+                return redirect(url_for("season"))
             # Reset all turbo flags for this user's season team
             db.execute("UPDATE season_teams SET is_turbo = 0 WHERE user_id = ?", (user_id,))
             db.execute("UPDATE season_teams SET is_turbo = 1 WHERE user_id = ? AND driver_id = ?",
@@ -1252,6 +1257,7 @@ def season():
         has_season_team=has_season_team,
         lineup_locked=lineup_locked,
         turbo_id=turbo_id,
+        turbo_salary_cap=TURBO_SALARY_CAP,
         last_race_summary=last_race_summary,
         last_race_info=last_race_info,
     )
@@ -1306,6 +1312,7 @@ def season_team():
         "season_team.html",
         drivers=drivers,
         constructors=constructors,
+        turbo_salary_cap=TURBO_SALARY_CAP,
     )
 
 
