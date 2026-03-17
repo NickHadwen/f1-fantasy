@@ -1,59 +1,43 @@
 {% extends "base.html" %}
-{% set active_page = 'team' %}
-{% block title %}Picks - {{ race.name }} - F1 Fantasy{% endblock %}
+{% set active_page = 'season' %}
+{% block body_class %}season-theme{% endblock %}
+{% block title %}Pick Season Team - F1 Fantasy{% endblock %}
 {% block body %}
 <div class="container">
-    <div class="retro-header">
-        <h1>R{{ race.round }} {{ race.name }}</h1>
-        <p>Submit your driver and constructor picks for this race</p>
-    </div>
-
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
     <div class="flash {{ category }}">{{ message }}</div>
     {% endfor %}
     {% endwith %}
 
-    <form method="POST" id="teamForm">
-        <!-- Budget bar -->
+    <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(74,158,255,0.08); border: 1px solid var(--accent); border-radius: var(--radius); text-align: center;">
+        <strong style="color: var(--accent);">This team is permanent for the entire season. Choose wisely.</strong>
+    </div>
+
+    <form method="POST">
         <div class="budget-bar">
-            <div class="budget-info">
-                Budget: <span id="budgetSpent">$0.0M</span> / ${{ "%.1f"|format(budget) }}M
-            </div>
             <div>
-                Remaining: <span class="budget-remaining" id="budgetRemaining">${{ "%.1f"|format(budget) }}M</span>
+                Drivers: <span id="driverCount">0</span>/5
+                &nbsp;&middot;&nbsp;
+                Constructors: <span id="constructorCount">0</span>/1
             </div>
         </div>
 
         <!-- Drivers -->
         <div class="picker-section">
             <h3>Select 5 Drivers</h3>
-            <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
-                Selected: <span id="driverCount">0</span>/5
-                &nbsp;&middot;&nbsp; Lock a driver for 1-5 races. After their lock expires, they're unavailable for 1 race.
-            </p>
             <div class="picker-grid">
                 {% for d in drivers %}
-                <label class="picker-card {{ 'selected' if d.id|string in selected_driver_ids }}" data-price="{{ d.price }}" data-type="driver">
-                    <input type="checkbox" name="drivers" value="{{ d.id }}"
-                           {{ 'checked' if d.id|string in selected_driver_ids }}>
+                <label class="picker-card" data-price="{{ d.price }}" data-type="driver">
+                    <input type="checkbox" name="drivers" value="{{ d.id }}">
                     <div class="picker-card-inner">
                         <img class="portrait-md" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.webp') }}" alt="{{ d.name }}">
                         <div class="driver-info">
                             <h4>#{{ d.number }} {{ d.name }}</h4>
                             <div class="team-name">{{ d.team }}</div>
                             <div class="points-tag">{{ d.points }} pts</div>
-                            <div class="lock-select" style="margin-top: .4rem;">
-                                <input type="hidden" name="lock_{{ d.id }}" value="{{ driver_locks.get(d.id|string, 1) }}" class="lock-val">
-                                <div class="lock-btn-group" onclick="event.stopPropagation(); event.preventDefault();">
-                                    {% for n in range(1, 6) %}
-                                    <button type="button" class="lock-btn{{ ' active' if driver_locks.get(d.id|string, 1) == n }}" data-n="{{ n }}" onclick="setLock(this)">{{ n }}</button>
-                                    {% endfor %}
-                                </div>
-                            </div>
                         </div>
                     </div>
-                    <div class="price-tag">${{ "%.1f"|format(d.price) }}M</div>
                 </label>
                 {% endfor %}
             </div>
@@ -62,32 +46,18 @@
         <!-- Constructors -->
         <div class="picker-section">
             <h3>Select 1 Constructor</h3>
-            <p style="color: var(--text-dim); font-size: .85rem; margin-bottom: 1rem;">
-                Selected: <span id="constructorCount">0</span>/1
-                &nbsp;&middot;&nbsp; Lock a constructor for 1-5 races. After their lock expires, they're unavailable for 1 race.
-            </p>
             <div class="picker-grid">
                 {% for c in constructors %}
-                <label class="picker-card {{ 'selected' if c.id|string in selected_constructor_ids }}" data-price="{{ c.price }}" data-type="constructor">
-                    <input type="checkbox" name="constructors" value="{{ c.id }}"
-                           {{ 'checked' if c.id|string in selected_constructor_ids }}>
+                <label class="picker-card" data-price="{{ c.price }}" data-type="constructor">
+                    <input type="checkbox" name="constructors" value="{{ c.id }}">
                     <div class="constructor-bar" style="background: {{ c.color }};"></div>
                     <div class="picker-card-inner">
                         <img class="constructor-logo" src="{{ url_for('static', filename='img/constructors/' + c.name.lower().replace(' ', '-') + '.webp') }}" alt="{{ c.name }}">
                     <div class="driver-info">
                         <h4>{{ c.name }}</h4>
                         <div class="points-tag">{{ c.points }} pts</div>
-                        <div class="lock-select" style="margin-top: .4rem;">
-                            <input type="hidden" name="lock_c_{{ c.id }}" value="{{ constructor_locks.get(c.id|string, 1) }}" class="lock-val">
-                            <div class="lock-btn-group" onclick="event.stopPropagation(); event.preventDefault();">
-                                {% for n in range(1, 6) %}
-                                <button type="button" class="lock-btn{{ ' active' if constructor_locks.get(c.id|string, 1) == n }}" data-n="{{ n }}" onclick="setLock(this)">{{ n }}</button>
-                                {% endfor %}
-                            </div>
-                        </div>
                     </div>
                     </div>
-                    <div class="price-tag">${{ "%.1f"|format(c.price) }}M</div>
                 </label>
                 {% endfor %}
             </div>
@@ -105,7 +75,7 @@
         </div>
 
         <br>
-        <button type="submit" class="btn btn-primary" id="saveBtn" style="max-width: 300px;" disabled>Save Picks for {{ race.name }}</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn" style="max-width: 300px;" disabled>Lock In Season Team</button>
         <p id="saveHint" style="color: var(--text-dim); font-size: .85rem; margin-top: .5rem;"></p>
     </form>
 </div>
@@ -113,51 +83,27 @@
 
 {% block scripts %}
 <script>
-const budget = {{ budget }};
-const turboId = {{ turbo_id|tojson }};
 const turboSalaryCap = {{ turbo_salary_cap }};
-
-function setLock(btn) {
-    const group = btn.closest('.lock-btn-group');
-    group.querySelectorAll('.lock-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    group.parentElement.querySelector('.lock-val').value = btn.dataset.n;
-}
 
 function updateUI() {
     const driverChecks = document.querySelectorAll('input[name="drivers"]:checked');
     const constructorChecks = document.querySelectorAll('input[name="constructors"]:checked');
 
-    let spent = 0;
-    driverChecks.forEach(cb => {
-        spent += parseFloat(cb.closest('.picker-card').dataset.price);
-    });
-    constructorChecks.forEach(cb => {
-        spent += parseFloat(cb.closest('.picker-card').dataset.price);
-    });
-
-    const remaining = budget - spent;
-    document.getElementById('budgetSpent').textContent = `$${spent.toFixed(1)}M`;
-    const remEl = document.getElementById('budgetRemaining');
-    remEl.textContent = `$${remaining.toFixed(1)}M`;
-    remEl.className = remaining < 0 ? 'budget-remaining over' : 'budget-remaining';
-
     document.getElementById('driverCount').textContent = driverChecks.length;
     document.getElementById('constructorCount').textContent = constructorChecks.length;
 
-    // Update turbo select (only drivers under salary cap are eligible)
     const turboSelect = document.getElementById('turboSelect');
     const currentTurbo = turboSelect.value;
     turboSelect.innerHTML = '<option value="">-- Select turbo driver --</option>';
     driverChecks.forEach(cb => {
         const card = cb.closest('.picker-card');
         const price = parseFloat(card.dataset.price);
-        const name = card.querySelector('h4').textContent;
         if (price >= turboSalaryCap) return;
+        const name = card.querySelector('h4').textContent;
         const opt = document.createElement('option');
         opt.value = cb.value;
         opt.textContent = name + ` ($${price.toFixed(1)}M)`;
-        if (cb.value === currentTurbo || cb.value === turboId) opt.selected = true;
+        if (cb.value === currentTurbo) opt.selected = true;
         turboSelect.appendChild(opt);
     });
 
@@ -166,7 +112,7 @@ function updateUI() {
         card.classList.toggle('selected', cb.checked);
     });
 
-    // Validate full lineup + turbo before allowing save
+    // Validate
     const saveBtn = document.getElementById('saveBtn');
     const saveHint = document.getElementById('saveHint');
     const hasTurbo = turboSelect.value !== '';
@@ -174,7 +120,6 @@ function updateUI() {
     if (driverChecks.length < 5) hints.push(`${5 - driverChecks.length} more driver${5 - driverChecks.length !== 1 ? 's' : ''}`);
     if (constructorChecks.length < 1) hints.push('1 constructor');
     if (!hasTurbo) hints.push('a turbo driver');
-    if (remaining < 0) hints.push('under budget');
 
     if (hints.length === 0) {
         saveBtn.disabled = false;

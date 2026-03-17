@@ -1,16 +1,7 @@
 {% extends "base.html" %}
+{% set active_page = 'home' %}
 {% block title %}Dashboard - F1 Fantasy{% endblock %}
 {% block body %}
-<header class="navbar">
-    <span class="brand">F1 Fantasy</span>
-    <nav>
-        <a href="{{ url_for('home') }}" class="active">Dashboard</a>
-        <a href="{{ url_for('team') }}">My Team</a>
-        <a href="{{ url_for('admin') }}">Admin</a>
-        <a href="{{ url_for('logout') }}">Logout</a>
-    </nav>
-</header>
-
 <div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
@@ -268,6 +259,7 @@
         <!-- Constructor Standings (Official F1) -->
         <div class="card">
             <h2>Constructor Standings <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">Official F1</span></h2>
+            <div class="table-scroll">
             <table class="standings-table">
                 <thead>
                     <tr><th>#</th><th>Constructor</th><th class="points-col">Pts</th></tr>
@@ -285,6 +277,7 @@
                     {% endif %}
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Race Calendar -->

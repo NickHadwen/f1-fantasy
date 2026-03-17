@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% set active_page = 'season' %}
+{% block body_class %}season-theme{% endblock %}
+{% block title %}Season League - F1 Fantasy{% endblock %}
+{% block body %}
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    <div class="dashboard">
+        <!-- Leaderboard -->
+        <div class="card full-width">
+            <h2>Season League Leaderboard</h2>
+            {% if leaderboard %}
+            <div class="table-scroll">
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th class="rank">#</th>
+                        <th>Player</th>
+                        <th class="points-col hide-narrow">Last Race</th>
+                        <th class="points-col">Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in leaderboard %}
+                    <tr class="{{ 'current-user' if row.id == session.user_id }}">
+                        <td class="rank {{ 'gold' if loop.index == 1 }}{{ 'silver' if loop.index == 2 }}{{ 'bronze' if loop.index == 3 }}">
+                            {{ loop.index }}
+                        </td>
+                        <td>{{ row.username }}</td>
+                        <td class="points-col hide-narrow" style="color: var(--text-dim);">{{ row.last_race_pts }}</td>
+                        <td class="points-col">{{ row.total_points }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p style="color: var(--text-dim); text-align: center; padding: 1rem;">No season teams picked yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- My Season Team -->
+        <div class="card">
+            <h2>My Season Team</h2>
+            {% if has_season_team %}
+                {% for d in season_drivers %}
+                <div class="team-slot">
+                    <div class="team-slot-left">
+                        <img class="portrait-sm" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.webp') }}" alt="{{ d.name }}">
+                        <div>
+                            <span class="driver-name">{{ d.name }}</span>
+                            {% if d.is_turbo %}<span class="turbo-badge">2x</span>{% endif %}
+                            <br><span class="driver-team">{{ d.team }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% for c in season_constructors %}
+                <div class="team-slot">
+                    <div class="team-slot-left">
+                        <img class="portrait-sm" style="object-fit: contain;" src="{{ url_for('static', filename='img/constructors/' + c.name.lower().replace(' ', '-') + '.webp') }}" alt="{{ c.name }}">
+                        <div>
+                            <span class="driver-name">{{ c.name }}</span>
+                            <br><span class="driver-team">Constructor</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Turbo selector -->
+                {% if not lineup_locked %}
+                <form method="POST" style="margin-top: 1rem; padding: .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);">
+                    <label style="font-size: .85rem; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: .4rem;">Change Turbo Driver <span style="font-weight:400;">(under ${{ "%.1f"|format(turbo_salary_cap) }}M)</span></label>
+                    <div style="display: flex; gap: .5rem; align-items: center;">
+                        <select name="turbo_driver" style="flex: 1; padding: .5rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: .9rem;">
+                            {% for d in season_drivers %}
+                            {% if d.price < turbo_salary_cap %}
+                            <option value="{{ d.id }}" {{ 'selected' if turbo_id == d.id|string }}>{{ d.name }} (${{ "%.1f"|format(d.price) }}M)</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary" style="width: auto; padding: .5rem 1rem; font-size: .85rem;">Update</button>
+                    </div>
+                </form>
+                {% else %}
+                <div style="margin-top: .75rem; padding: .5rem .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); font-size: .8rem; color: var(--text-dim);">
+                    Turbo locked until race is scored
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-team">
+                    <p>You haven't picked a season team yet.</p>
+                    <p style="color: var(--text-dim); font-size: .85rem; margin: .5rem 0;">This team is permanent for the entire season.</p>
+                    <br>
+                    <a href="{{ url_for('season_team') }}" class="btn btn-primary" style="display:inline-flex; width:auto;">Pick Season Team</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Last Race Summary -->
+        {% if last_race_summary %}
+        <div class="card full-width">
+            <h2>Last Race Summary <span style="font-size:.7rem; color:var(--text-dim); font-weight:400;">{{ last_race_info.name }}</span></h2>
+            <div class="scroll-area">
+                {% for entry in last_race_summary %}
+                <div class="race-summary-card">
+                    <div class="race-summary-header">
+                        <div class="race-summary-user">
+                            <span class="race-summary-rank">{{ loop.index }}</span>
+                            <strong>{{ entry.username }}</strong>
+                        </div>
+                        <span class="race-summary-total">{{ entry.total_points }} pts</span>
+                    </div>
+                    {% if entry.drivers or entry.constructors %}
+                    <div class="race-summary-picks">
+                        {% for d in entry.drivers %}
+                        <div class="race-summary-pick">
+                            <img class="portrait-xs" src="{{ url_for('static', filename='img/portraits/' + d.name.lower().replace(' ', '-').replace('.', '') + '.webp') }}" alt="{{ d.name }}">
+                            <div class="race-summary-pick-info">
+                                <span class="race-summary-pick-name">
+                                    {{ d.name }}{% if d.is_turbo %} <span class="turbo-badge" style="font-size:.55rem;">2x</span>{% endif %}
+                                </span>
+                                <span class="race-summary-pick-pts">{{ d.points }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% for c in entry.constructors %}
+                        <div class="race-summary-pick constructor">
+                            <img class="portrait-xs" style="object-fit: contain;" src="{{ url_for('static', filename='img/constructors/' + c.name.lower().replace(' ', '-') + '.webp') }}" alt="{{ c.name }}">
+                            <div class="race-summary-pick-info">
+                                <span class="race-summary-pick-name">{{ c.name }}</span>
+                                <span class="race-summary-pick-pts">{{ c.points }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
