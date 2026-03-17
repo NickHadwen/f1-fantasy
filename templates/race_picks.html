@@ -1,17 +1,7 @@
 {% extends "base.html" %}
+{% set active_page = 'team' %}
 {% block title %}Picks - {{ race.name }} - F1 Fantasy{% endblock %}
 {% block body %}
-<header class="navbar">
-    <span class="brand">F1 Fantasy</span>
-    <nav>
-        <a href="{{ url_for('home') }}">Dashboard</a>
-        <a href="{{ url_for('team') }}">My Team</a>
-        <a href="{{ url_for('season') }}">Season League</a>
-        <a href="{{ url_for('admin') }}">Admin</a>
-        <a href="{{ url_for('logout') }}">Logout</a>
-    </nav>
-</header>
-
 <div class="container">
     <div class="retro-header">
         <h1>R{{ race.round }} {{ race.name }}</h1>

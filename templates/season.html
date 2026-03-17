@@ -1,18 +1,8 @@
 {% extends "base.html" %}
+{% set active_page = 'season' %}
+{% block body_class %}season-theme{% endblock %}
 {% block title %}Season League - F1 Fantasy{% endblock %}
 {% block body %}
-<div class="season-theme">
-<header class="navbar">
-    <span class="brand">F1 Fantasy</span>
-    <nav>
-        <a href="{{ url_for('home') }}">Dashboard</a>
-        <a href="{{ url_for('team') }}">My Team</a>
-        <a href="{{ url_for('season') }}" class="active">Season League</a>
-        <a href="{{ url_for('admin') }}">Admin</a>
-        <a href="{{ url_for('logout') }}">Logout</a>
-    </nav>
-</header>
-
 <div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
@@ -154,6 +144,5 @@
         </div>
         {% endif %}
     </div>
-</div>
 </div>
 {% endblock %}
